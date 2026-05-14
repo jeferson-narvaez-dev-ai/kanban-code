@@ -5,7 +5,7 @@ interface UIState {
   activeEpicId: string | null;
   activeProjectId: string | null;
   filterPriority: 'all' | 'high' | 'medium' | 'low';
-  showTerminal: boolean;
+  activeTab: 'board' | 'docs' | 'agent';
 }
 
 export const uiStore = new Store<UIState>({
@@ -13,7 +13,7 @@ export const uiStore = new Store<UIState>({
   activeEpicId: null,
   activeProjectId: null,
   filterPriority: 'all',
-  showTerminal: false,
+  activeTab: 'board',
 });
 
 export function navigateToEpic(epicId: string) {
@@ -32,6 +32,6 @@ export function setFilterPriority(p: UIState['filterPriority']) {
   uiStore.setState(s => ({ ...s, filterPriority: p }));
 }
 
-export function toggleTerminal() {
-  uiStore.setState(s => ({ ...s, showTerminal: !s.showTerminal }));
+export function setActiveTab(tab: UIState['activeTab']) {
+  uiStore.setState(s => ({ ...s, activeTab: tab }));
 }

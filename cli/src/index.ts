@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { runInit } from './commands/init.js';
+import { runOpen } from './commands/open.js';
 
 const program = new Command();
 
@@ -15,6 +16,22 @@ program
   .action(async () => {
     try {
       await runInit();
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`\nError: ${error.message}`);
+      } else {
+        console.error('\nOcurrió un error inesperado.');
+      }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('open')
+  .description('Abrir el directorio actual como proyecto Kanban e instalar harness')
+  .action(async () => {
+    try {
+      await runOpen();
     } catch (error) {
       if (error instanceof Error) {
         console.error(`\nError: ${error.message}`);

@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { FolderOpen, Plus, Layers, TerminalSquare } from 'lucide-react';
+import { FolderOpen, Plus, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { useStore } from '@tanstack/react-store';
-import clsx from 'clsx';
 import type { Epic, Project } from '../types';
 import { CreateEpicModal } from './CreateEpicModal';
-import { TerminalPanel } from './TerminalPanel';
-import { uiStore, toggleTerminal } from '../store/uiStore';
 import { getTasks } from '../lib/api';
 
 interface HomeScreenProps {
@@ -127,7 +123,6 @@ export function HomeScreen({
   onCreateEpic,
   onOpenFolder,
 }: HomeScreenProps) {
-  const { showTerminal } = useStore(uiStore);
   const [showCreateEpic, setShowCreateEpic] = useState(false);
 
   function handleCreateEpic(name: string, description: string | undefined, color: string, path?: string) {
@@ -144,22 +139,6 @@ export function HomeScreen({
             <Layers size={22} className="text-[#58a6ff]" aria-hidden="true" />
             <span className="text-[#e6edf3] font-semibold text-lg tracking-tight">Kanban</span>
           </div>
-          {/* Terminal toggle */}
-          <button
-            onClick={toggleTerminal}
-            className={clsx(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-              showTerminal
-                ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
-                : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border-[#30363d] hover:border-[#8b949e]'
-            )}
-            aria-pressed={showTerminal}
-            aria-label="Toggle terminal"
-            title="Toggle terminal"
-          >
-            <TerminalSquare size={13} aria-hidden="true" />
-            <span>Terminal</span>
-          </button>
         </div>
       </header>
 
@@ -253,8 +232,6 @@ export function HomeScreen({
         />
       )}
 
-      {/* Terminal panel */}
-      {showTerminal && <TerminalPanel onClose={toggleTerminal} />}
     </div>
   );
 }

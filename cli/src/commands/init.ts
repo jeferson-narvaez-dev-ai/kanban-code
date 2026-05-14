@@ -34,17 +34,19 @@ function resolveDefaultProjectName(): string {
   return path.basename(process.cwd());
 }
 
-async function createWorkspaceFiles(
-  projectWorkspacePath: string
+export async function createWorkspaceFiles(
+  projectWorkspacePath: string,
+  projectName: string
 ): Promise<{ created: number; skipped: number }> {
-  const kanbanDir = path.resolve(projectWorkspacePath, '.kanban');
-  await fs.ensureDir(kanbanDir);
-
   let created = 0;
   let skipped = 0;
 
+  // tasks/ with column markdown files
+  const tasksDir = path.resolve(projectWorkspacePath, 'tasks');
+  await fs.ensureDir(tasksDir);
+
   for (const column of COLUMNS) {
-    const filePath = path.resolve(kanbanDir, column.filename);
+    const filePath = path.resolve(tasksDir, column.filename);
     const exists = await fs.pathExists(filePath);
 
     if (exists) {
@@ -56,10 +58,99 @@ async function createWorkspaceFiles(
     }
   }
 
+  // Directories with .gitkeep
+  const emptyDirs = [
+    'research',
+    'proposals/active',
+    'proposals/accepted',
+    'specs',
+    'design',
+    'plans/active',
+    'plans/completed',
+    'references',
+  ];
+
+  for (const dir of emptyDirs) {
+    const dirPath = path.resolve(projectWorkspacePath, dir);
+    await fs.ensureDir(dirPath);
+    const keepFile = path.resolve(dirPath, '.gitkeep');
+    const exists = await fs.pathExists(keepFile);
+    if (!exists) {
+      await fs.writeFile(keepFile, '', 'utf8');
+      created++;
+    } else {
+      skipped++;
+    }
+  }
+
+  // AGENTS.md
+  const agentsMdPath = path.resolve(projectWorkspacePath, 'AGENTS.md');
+  const agentsMdExists = await fs.pathExists(agentsMdPath);
+  if (agentsMdExists) {
+    skipped++;
+  } else {
+    const agentsMdContent = `# Agent Instructions
+
+This file defines how AI agents should work with this project.
+
+## Context
+- Tasks are stored in \`tasks/\` as Markdown files
+- Research notes go in \`research/\`
+- Proposals (active) go in \`proposals/active/\`
+- Accepted proposals move to \`proposals/accepted/\`
+- Specs go in \`specs/\`
+- Design decisions go in \`design/\`
+- Plans go in \`plans/active/\` and \`plans/completed/\`
+- Reference material goes in \`references/\`
+
+## Working Guidelines
+- Always read ARCHITECTURE.md before making structural changes
+- Create tasks in the appropriate column in \`tasks/\`
+- Document decisions in the appropriate folder
+`;
+    await fs.writeFile(agentsMdPath, agentsMdContent, 'utf8');
+    created++;
+  }
+
+  // ARCHITECTURE.md
+  const architectureMdPath = path.resolve(projectWorkspacePath, 'ARCHITECTURE.md');
+  const architectureMdExists = await fs.pathExists(architectureMdPath);
+  if (architectureMdExists) {
+    skipped++;
+  } else {
+    const architectureMdContent = `# Architecture
+
+Document the high-level architecture of this project here.
+
+## Overview
+
+## Key Decisions
+
+## Tech Stack
+`;
+    await fs.writeFile(architectureMdPath, architectureMdContent, 'utf8');
+    created++;
+  }
+
+  // meta.json
+  const metaJsonPath = path.resolve(projectWorkspacePath, 'meta.json');
+  const metaJsonExists = await fs.pathExists(metaJsonPath);
+  if (metaJsonExists) {
+    skipped++;
+  } else {
+    const meta = {
+      id: projectName,
+      name: projectName,
+      createdAt: new Date().toISOString(),
+    };
+    await fs.writeFile(metaJsonPath, JSON.stringify(meta, null, 2) + '\n', 'utf8');
+    created++;
+  }
+
   return { created, skipped };
 }
 
-async function ensureGitignoreEntry(cwd: string, entry: string): Promise<void> {
+export async function ensureGitignoreEntry(cwd: string, entry: string): Promise<void> {
   const gitignorePath = path.resolve(cwd, '.gitignore');
   const exists = await fs.pathExists(gitignorePath);
 
@@ -80,7 +171,7 @@ async function ensureGitignoreEntry(cwd: string, entry: string): Promise<void> {
   }
 }
 
-async function generateEnvFile(
+export async function generateEnvFile(
   cwd: string,
   projectName: string,
   workspace: string
@@ -136,10 +227,10 @@ export async function runInit(): Promise<void> {
   const projectWorkspacePath = path.resolve(workspaceBase, trimmedName);
 
   // TASK-00A: Create workspace files
-  const spinner = ora('Creando workspace y archivos .kanban/...').start();
+  const spinner = ora('Creando workspace harness...').start();
 
   try {
-    const { created, skipped } = await createWorkspaceFiles(projectWorkspacePath);
+    const { created, skipped } = await createWorkspaceFiles(projectWorkspacePath, trimmedName);
 
     if (skipped > 0 && created === 0) {
       spinner.info(
@@ -187,7 +278,7 @@ export async function runInit(): Promise<void> {
 
   // TASK-00D: Print summary
   const kanbanDir = path
-    .resolve(workspaceBase, trimmedName, '.kanban')
+    .resolve(workspaceBase, trimmedName)
     .replace(os.homedir(), '~');
 
   console.log(`
@@ -195,7 +286,18 @@ ${chalk.green.bold('Proyecto')} ${chalk.white.bold(`"${trimmedName}"`)} ${chalk.
 
 ${chalk.blue('Workspace:')}    ${chalk.white(kanbanDir + '/')}
 ${chalk.blue('Variables:')}    ${chalk.white('.env.kanban')} ${chalk.gray('(configura tus credenciales AWS)')}
-${chalk.blue('Skills:')}       ${chalk.white('.claude/commands/')} ${chalk.gray('(4 comandos instalados)')}
+${chalk.blue('Skills:')}       ${chalk.white('.claude/commands/')} ${chalk.gray('(10 comandos instalados)')}
+
+${chalk.bold('Estructura creada:')}
+  ${chalk.cyan('tasks/')}         backlog, in-progress, review, done
+  ${chalk.cyan('research/')}      notas e investigación
+  ${chalk.cyan('proposals/')}     propuestas activas y aceptadas
+  ${chalk.cyan('specs/')}         especificaciones técnicas
+  ${chalk.cyan('design/')}        decisiones de diseño
+  ${chalk.cyan('plans/')}         planes activos y completados
+  ${chalk.cyan('references/')}    material de referencia
+  ${chalk.cyan('AGENTS.md')}      instrucciones para el agente
+  ${chalk.cyan('ARCHITECTURE.md')} arquitectura del proyecto
 
 ${chalk.bold('Próximos pasos:')}
   ${chalk.yellow('1.')} Edita ${chalk.cyan('.env.kanban')} con tus credenciales de AWS Bedrock

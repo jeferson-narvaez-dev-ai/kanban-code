@@ -6,7 +6,7 @@ import { config } from './config';
 import projectsRouter from './routes/projects';
 import tasksRouter from './routes/tasks';
 import agentRouter from './routes/agent';
-import { setupTerminalWS } from './terminal';
+import filesRouter from './routes/files';
 import { startFileWatcher } from './watcher/fileWatcher';
 
 const app = express();
@@ -16,12 +16,10 @@ app.use(express.json());
 
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects/:projectId/tasks', tasksRouter);
+app.use('/api/projects/:projectId/files', filesRouter);
 app.use('/api/agent', agentRouter);
 
 const httpServer = createServer(app);
-const wss = new WebSocketServer({ server: httpServer, path: '/terminal' });
-setupTerminalWS(wss);
-
 const kanbanWss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
 kanbanWss.on('connection', (ws) => {

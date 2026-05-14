@@ -7,6 +7,7 @@ import { useEpics } from './hooks/useEpics';
 import { KanbanBoard } from './components/KanbanBoard';
 import { HomeScreen } from './components/HomeScreen';
 import { CreateProjectModal } from './components/CreateProjectModal';
+import { ProjectWorkspace } from './components/ProjectWorkspace';
 
 function App() {
   const { view, activeEpicId, activeProjectId } = useStore(uiStore);
@@ -44,8 +45,7 @@ function App() {
   if (view === 'project' && activeProjectId) {
     const project = projects.find((p) => p.id === activeProjectId);
     return (
-      <KanbanBoard
-        mode="project"
+      <ProjectWorkspace
         projectId={activeProjectId}
         projectName={project?.name ?? 'Project'}
         projects={projects}

@@ -81,7 +81,7 @@ function taskToMarkdown(task: Task): string {
 // --- File operations ---
 
 function columnPath(projectId: string, column: ColumnId): string {
-  return path.join(config.workspace, projectId, '.kanban', `${column}.md`);
+  return path.join(config.workspace, projectId, 'tasks', `${column}.md`);
 }
 
 export async function readColumn(projectId: string, column: ColumnId): Promise<Task[]> {
@@ -151,7 +151,7 @@ export async function deleteTask(projectId: string, taskId: string): Promise<voi
     const tasks = await readColumn(projectId, col);
     const task = tasks.find(t => t.id === taskId);
     if (task) {
-      const trashDir = path.join(config.workspace, projectId, '.kanban', '.trash');
+      const trashDir = path.join(config.workspace, projectId, 'tasks', '.trash');
       await fs.mkdir(trashDir, { recursive: true });
       const trashFile = path.join(trashDir, `${taskId}-${Date.now()}.md`);
       await fs.writeFile(trashFile, taskToMarkdown(task), 'utf-8');
@@ -171,7 +171,7 @@ export async function archiveDone(projectId: string, olderThanDays = 30): Promis
   });
   if (toArchive.length === 0) return 0;
 
-  const archiveDir = path.join(config.workspace, projectId, '.kanban', 'archive');
+  const archiveDir = path.join(config.workspace, projectId, 'tasks', 'archive');
   await fs.mkdir(archiveDir, { recursive: true });
   const archiveFile = path.join(archiveDir, `done-${new Date().toISOString().split('T')[0]}.md`);
   const content = `# Archived ${new Date().toISOString()}\n\n` + toArchive.map(taskToMarkdown).join('\n---\n\n');
@@ -187,19 +187,19 @@ export async function listProjects(): Promise<Project[]> {
     const entries = await fs.readdir(config.workspace, { withFileTypes: true });
     const projects = await Promise.all(
       entries.filter(e => e.isDirectory()).map(async (entry): Promise<Project> => {
-        const kanbanPath = path.join(config.workspace, entry.name, '.kanban');
+        const tasksPath = path.join(config.workspace, entry.name, 'tasks');
         let initialized = false;
         try {
-          await fs.access(kanbanPath);
+          await fs.access(path.join(tasksPath, 'backlog.md'));
           initialized = true;
         } catch {
-          // kanban directory does not exist — project is not initialized
+          // tasks/backlog.md does not exist — project is not initialized
         }
         const meta = await readProjectMeta(entry.name);
         return {
           id: entry.name,
           name: meta?.name ?? entry.name,
-          workspacePath: kanbanPath,
+          workspacePath: path.join(config.workspace, entry.name),
           initialized,
           path: meta?.path,
         };
@@ -212,15 +212,72 @@ export async function listProjects(): Promise<Project[]> {
 }
 
 export async function initProject(projectId: string, meta?: Partial<ProjectMeta>): Promise<void> {
-  const kanbanPath = path.join(config.workspace, projectId, '.kanban');
-  await fs.mkdir(kanbanPath, { recursive: true });
+  const projectRoot = path.join(config.workspace, projectId);
+
+  // Create all harness directories
+  const dirs = [
+    path.join(projectRoot, 'tasks'),
+    path.join(projectRoot, 'research'),
+    path.join(projectRoot, 'proposals', 'active'),
+    path.join(projectRoot, 'proposals', 'accepted'),
+    path.join(projectRoot, 'specs'),
+    path.join(projectRoot, 'design'),
+    path.join(projectRoot, 'plans', 'active'),
+    path.join(projectRoot, 'plans', 'completed'),
+    path.join(projectRoot, 'references'),
+  ];
+  for (const dir of dirs) {
+    await fs.mkdir(dir, { recursive: true });
+  }
+
+  // Create column files in tasks/
   for (const col of COLUMNS) {
-    const filePath = path.join(kanbanPath, `${col}.md`);
+    const filePath = path.join(projectRoot, 'tasks', `${col}.md`);
     if (!fsSync.existsSync(filePath)) {
       const label = col.charAt(0).toUpperCase() + col.slice(1);
       await fs.writeFile(filePath, `# ${label}\n\n<!-- tasks -->\n`, 'utf-8');
     }
   }
+
+  // Create AGENTS.md if not present
+  const agentsFile = path.join(projectRoot, 'AGENTS.md');
+  if (!fsSync.existsSync(agentsFile)) {
+    await fs.writeFile(agentsFile, `# Agent Instructions
+
+This file defines how AI agents should work with this project.
+
+## Context
+- Tasks are stored in \`tasks/\` as Markdown files
+- Research notes go in \`research/\`
+- Proposals (active) go in \`proposals/active/\`
+- Accepted proposals move to \`proposals/accepted/\`
+- Specs go in \`specs/\`
+- Design decisions go in \`design/\`
+- Plans go in \`plans/active/\` and \`plans/completed/\`
+- Reference material goes in \`references/\`
+
+## Working Guidelines
+- Always read ARCHITECTURE.md before making structural changes
+- Create tasks in the appropriate column in \`tasks/\`
+- Document decisions in the appropriate folder
+`, 'utf-8');
+  }
+
+  // Create ARCHITECTURE.md if not present
+  const archFile = path.join(projectRoot, 'ARCHITECTURE.md');
+  if (!fsSync.existsSync(archFile)) {
+    await fs.writeFile(archFile, `# Architecture
+
+Document the high-level architecture of this project here.
+
+## Overview
+
+## Key Decisions
+
+## Tech Stack
+`, 'utf-8');
+  }
+
   await writeProjectMeta({
     id: projectId,
     name: meta?.name ?? projectId,

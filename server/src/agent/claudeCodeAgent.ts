@@ -123,8 +123,21 @@ When creating tasks, make them specific and actionable.`;
     ? `Previous conversation:\n${history}\n\nUser: ${lastUserMessage}`
     : lastUserMessage;
 
-  // Resolve claude binary path
-  const claudeBin = process.env.CLAUDE_BIN || 'claude';
+  // Resolve claude binary: env override > common install paths > PATH
+  const claudeBin =
+    process.env.CLAUDE_BIN ||
+    (() => {
+      const candidates = [
+        '/opt/homebrew/bin/claude',
+        '/usr/local/bin/claude',
+        `${os.homedir()}/.local/bin/claude`,
+      ];
+      const { execSync } = require('child_process') as typeof import('child_process');
+      for (const p of candidates) {
+        try { execSync(`test -x "${p}"`); return p; } catch { /* try next */ }
+      }
+      return 'claude'; // fallback to PATH
+    })();
 
   const args = [
     '-p',

@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { config } from '../config';
-import { listProjects, initProject, readColumn, archiveDone } from '../store/markdownStore';
+import { listProjects, initProject, readColumn, archiveDone, readProjectMeta } from '../store/markdownStore';
 import { COLUMNS } from '../types';
 
 const router = Router();
@@ -41,7 +42,7 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({
       id: projectId,
       name: name ?? projectId,
-      workspacePath: path.join(config.workspace, projectId, '.kanban'),
+      workspacePath: path.join(config.workspace, projectId),
       initialized: true,
       taskCount: 0,
       path: projectPath,
@@ -110,12 +111,57 @@ router.post('/:id/init', async (req: Request, res: Response) => {
     res.json({
       id,
       name: id,
-      workspacePath: path.join(config.workspace, id, '.kanban'),
+      workspacePath: path.join(config.workspace, id),
       initialized: true,
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to init project' });
+  }
+});
+
+// POST /api/projects/:id/harness
+// Installs Claude slash-command skills into the project's source code .claude/commands/
+router.post('/:id/harness', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params['id']);
+    const meta = await readProjectMeta(id);
+    if (!meta?.path) {
+      res.status(400).json({ error: 'Project has no source path configured. Set the project path first.' });
+      return;
+    }
+
+    const sourcePath = meta.path.replace('~', os.homedir());
+
+    // Verify the source path exists
+    try {
+      await fs.access(sourcePath);
+    } catch {
+      res.status(400).json({ error: `Source path does not exist: ${meta.path}` });
+      return;
+    }
+
+    const commandsDir = path.join(sourcePath, '.claude', 'commands');
+    await fs.mkdir(commandsDir, { recursive: true });
+
+    const { getSkillFiles } = await import('../utils/skillTemplates');
+    const skills = getSkillFiles();
+
+    const results: Array<{ filename: string; status: 'created' | 'updated' }> = [];
+    for (const skill of skills) {
+      const filePath = path.join(commandsDir, skill.filename);
+      await fs.writeFile(filePath, skill.content, 'utf-8');
+      results.push({ filename: skill.filename, status: 'created' });
+    }
+
+    res.json({
+      success: true,
+      commandsDir: commandsDir.replace(os.homedir(), '~'),
+      skills: results,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to install harness skills' });
   }
 });
 

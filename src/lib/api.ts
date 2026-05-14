@@ -26,6 +26,7 @@ export const initProject = (id: string) =>
 
 export const getEpics = (): Promise<Epic[]> => Promise.resolve([]);
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const createEpic = (_data: { id: string; name: string; description?: string; color: string; projectIds?: string[] }): Promise<Epic> =>
   Promise.reject(new Error('Epics not supported in Markdown mode'));
 
@@ -33,6 +34,7 @@ export const updateEpic = (_id: string, _data: Partial<Epic>): Promise<Epic> =>
   Promise.reject(new Error('Epics not supported in Markdown mode'));
 
 export const deleteEpic = (_id: string) => Promise.resolve();
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // --- Tasks (nuevo backend Markdown) ---
 
@@ -64,3 +66,31 @@ export const moveTask = (projectId: string, id: string, column: string) =>
 
 export const deleteTask = (projectId: string, id: string) =>
   api.delete(`/projects/${projectId}/tasks/${id}`);
+
+// --- Files API ---
+
+export const listFiles = (projectId: string, filePath?: string) =>
+  api.get<{ path: string; entries: Array<{ name: string; type: 'file' | 'directory'; path: string }> }>(
+    `/projects/${projectId}/files`,
+    { params: filePath ? { path: filePath } : {} }
+  ).then(r => r.data);
+
+export const getFileContent = (projectId: string, filePath: string) =>
+  api.get<{ path: string; content: string }>(
+    `/projects/${projectId}/files/content`,
+    { params: { path: filePath } }
+  ).then(r => r.data);
+
+export const saveFileContent = (projectId: string, filePath: string, content: string) =>
+  api.put(`/projects/${projectId}/files/content`, { content }, { params: { path: filePath } }).then(r => r.data);
+
+export const createFile = (projectId: string, filePath: string, type: 'file' | 'directory' = 'file') =>
+  api.post(`/projects/${projectId}/files`, null, { params: { path: filePath, type } }).then(r => r.data);
+
+export const deleteFile = (projectId: string, filePath: string) =>
+  api.delete(`/projects/${projectId}/files`, { params: { path: filePath } }).then(r => r.data);
+
+export const setupHarness = (projectId: string) =>
+  api.post<{ success: boolean; commandsDir: string; skills: Array<{ filename: string; status: string }> }>(
+    `/projects/${projectId}/harness`
+  ).then(r => r.data);

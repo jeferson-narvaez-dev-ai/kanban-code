@@ -8,8 +8,7 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { Bot, ChevronRight, Home, TerminalSquare } from 'lucide-react';
-import { useStore } from '@tanstack/react-store';
+import { Bot, ChevronRight, Home } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { Priority, Project, Status, Task } from '../types';
@@ -17,10 +16,8 @@ import { useKanban } from '../hooks/useKanban';
 import { useKanbanSocket } from '../hooks/useKanbanSocket';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
-import { TerminalPanel } from './TerminalPanel';
 import { AgentChat } from './AgentChat';
 import { InitProjectModal } from './InitProjectModal';
-import { uiStore, toggleTerminal } from '../store/uiStore';
 import { getProject } from '../api/client';
 import type { Project as ApiProject } from '../../shared/types';
 
@@ -67,7 +64,6 @@ export function KanbanBoard({
   // WebSocket — keeps TanStack Query cache in sync with server events
   useKanbanSocket(mode === 'project' ? (projectId ?? null) : null);
 
-  const { showTerminal } = useStore(uiStore);
   const [filter, setFilter] = useState<FilterValue>('all');
   const [showAgent, setShowAgent] = useState(false);
 
@@ -201,23 +197,6 @@ export function KanbanBoard({
               ))}
             </div>
 
-            {/* Terminal toggle */}
-            <button
-              onClick={toggleTerminal}
-              className={clsx(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                showTerminal
-                  ? 'bg-[#58a6ff] text-[#0d1117] border-[#58a6ff]'
-                  : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border-[#30363d] hover:border-[#8b949e]'
-              )}
-              aria-pressed={showTerminal}
-              aria-label="Toggle terminal"
-              title="Toggle terminal"
-            >
-              <TerminalSquare size={13} aria-hidden="true" />
-              <span>Terminal</span>
-            </button>
-
             {/* Agent chat toggle — only available in project mode */}
             {mode === 'project' && projectId && (
               <button
@@ -293,13 +272,6 @@ export function KanbanBoard({
         )}
       </div>
 
-      {/* Terminal panel */}
-      {showTerminal && (
-        <TerminalPanel
-          onClose={toggleTerminal}
-          cwd={mode === 'epic' ? epicPath : currentProject?.path}
-        />
-      )}
     </div>
   );
 }

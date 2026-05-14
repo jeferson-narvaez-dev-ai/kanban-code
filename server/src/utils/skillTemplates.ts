@@ -1,12 +1,9 @@
-import path from 'path';
-import fs from 'fs-extra';
-
-interface SkillFile {
+export interface SkillFile {
   filename: string;
   content: string;
 }
 
-function buildSkillFiles(): SkillFile[] {
+export function getSkillFiles(): SkillFile[] {
   return [
     {
       filename: 'kanban-new-task.md',
@@ -228,19 +225,4 @@ Foco del análisis: $ARGUMENTS
 `,
     },
   ];
-}
-
-export async function installSkills(cwd: string): Promise<number> {
-  const claudeCommandsDir = path.resolve(cwd, '.claude', 'commands');
-
-  await fs.ensureDir(claudeCommandsDir);
-
-  const skillFiles = buildSkillFiles();
-
-  for (const skill of skillFiles) {
-    const filePath = path.resolve(claudeCommandsDir, skill.filename);
-    await fs.writeFile(filePath, skill.content, 'utf8');
-  }
-
-  return skillFiles.length;
 }

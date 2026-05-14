@@ -8,7 +8,7 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { Bot, ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Home } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { Priority, Project, Status, Task } from '../types';
@@ -16,7 +16,6 @@ import { useKanban } from '../hooks/useKanban';
 import { useKanbanSocket } from '../hooks/useKanbanSocket';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
-import { AgentChat } from './AgentChat';
 import { InitProjectModal } from './InitProjectModal';
 import { getProject } from '../api/client';
 import type { Project as ApiProject } from '../../shared/types';
@@ -47,7 +46,6 @@ export function KanbanBoard({
   epicId,
   epicName,
   epicColor,
-  epicPath,
   projectId,
   projectName,
   projects,
@@ -65,11 +63,6 @@ export function KanbanBoard({
   useKanbanSocket(mode === 'project' ? (projectId ?? null) : null);
 
   const [filter, setFilter] = useState<FilterValue>('all');
-  const [showAgent, setShowAgent] = useState(false);
-
-  const currentProject = mode === 'project'
-    ? projects.find(p => p.id === projectId)
-    : undefined;
 
   // Fetch the authoritative project record (includes `initialized` flag)
   const { data: apiProject, refetch: refetchApiProject } = useQuery<ApiProject>({
@@ -146,7 +139,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="h-screen bg-[#0d1117] flex flex-col">
+    <div className="h-full bg-[#0d1117] flex flex-col">
       {/* Header */}
       <header className="border-b border-[#30363d] bg-[#161b22] px-6 py-4 flex-shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
@@ -176,102 +169,67 @@ export function KanbanBoard({
             </span>
           </nav>
 
-          <div className="flex items-center gap-3">
-            {/* Filter chips */}
-            <div className="flex items-center gap-1.5" role="group" aria-label="Filter by priority">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={clsx(
-                    'px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                    filter === f.value
-                      ? 'bg-[#58a6ff] text-[#0d1117]'
-                      : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border border-[#30363d]'
-                  )}
-                  aria-pressed={filter === f.value}
-                  aria-label={`Filter: ${f.label}`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Agent chat toggle — only available in project mode */}
-            {mode === 'project' && projectId && (
+          {/* Filter chips */}
+          <div className="flex items-center gap-1.5" role="group" aria-label="Filter by priority">
+            {FILTERS.map((f) => (
               <button
-                onClick={() => setShowAgent((v) => !v)}
+                key={f.value}
+                onClick={() => setFilter(f.value)}
                 className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                  showAgent
-                    ? 'bg-[#1f6feb] text-white border-[#1f6feb]'
-                    : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border-[#30363d] hover:border-[#8b949e]'
+                  'px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
+                  filter === f.value
+                    ? 'bg-[#58a6ff] text-[#0d1117]'
+                    : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border border-[#30363d]'
                 )}
-                aria-pressed={showAgent}
-                aria-label="Toggle agent chat"
-                title="Toggle agent chat"
+                aria-pressed={filter === f.value}
+                aria-label={`Filter: ${f.label}`}
               >
-                <Bot size={13} aria-hidden="true" />
-                <span>Agente</span>
+                {f.label}
               </button>
-            )}
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Board + Agent sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Board */}
-        <main className="flex-1 px-6 py-6 overflow-auto">
-          <div className="max-w-7xl mx-auto">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCorners}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="flex gap-4 items-start">
-                {columns.map((column) => (
-                  <Column
-                    key={column.id}
-                    column={column}
-                    filterPriority={filter}
-                    boardMode={mode}
-                    availableProjects={projects}
-                    onAddTask={addTask}
-                    onEditTask={editTask}
-                    onDeleteTask={deleteTask}
-                  />
-                ))}
-              </div>
-
-              <DragOverlay>
-                {activeTask ? (
-                  <div className="rotate-1 opacity-95">
-                    <TaskCard
-                      task={activeTask}
-                      onEdit={() => {}}
-                      onDelete={() => {}}
-                      projects={projects}
-                    />
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
-          </div>
-        </main>
-
-        {/* Agent chat sidebar */}
-        {showAgent && mode === 'project' && projectId && (
-          <aside
-            className="w-80 flex-shrink-0 border-l border-[#30363d] flex flex-col"
-            aria-label="Agent chat panel"
+      {/* Board */}
+      <main className="flex-1 px-6 py-6 overflow-auto">
+        <div className="max-w-7xl mx-auto">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
           >
-            <AgentChat projectId={projectId} />
-          </aside>
-        )}
-      </div>
+            <div className="flex gap-4 items-start">
+              {columns.map((column) => (
+                <Column
+                  key={column.id}
+                  column={column}
+                  filterPriority={filter}
+                  boardMode={mode}
+                  availableProjects={projects}
+                  onAddTask={addTask}
+                  onEditTask={editTask}
+                  onDeleteTask={deleteTask}
+                />
+              ))}
+            </div>
 
+            <DragOverlay>
+              {activeTask ? (
+                <div className="rotate-1 opacity-95">
+                  <TaskCard
+                    task={activeTask}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    projects={projects}
+                  />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      </main>
     </div>
   );
 }

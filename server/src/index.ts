@@ -7,6 +7,7 @@ import projectsRouter from './routes/projects';
 import tasksRouter from './routes/tasks';
 import agentRouter from './routes/agent';
 import filesRouter from './routes/files';
+import sessionsRouter from './routes/sessions';
 import { startFileWatcher } from './watcher/fileWatcher';
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects/:projectId/tasks', tasksRouter);
 app.use('/api/projects/:projectId/files', filesRouter);
+app.use('/api/projects/:projectId/sessions', sessionsRouter);
 app.use('/api/agent', agentRouter);
 
 const httpServer = createServer(app);

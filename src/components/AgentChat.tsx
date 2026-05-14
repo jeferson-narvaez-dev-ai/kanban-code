@@ -4,6 +4,8 @@ import clsx from 'clsx';
 
 interface Props {
   projectId: string;
+  sessionId?: string;
+  initialMessages?: Array<{ role: 'user' | 'assistant'; content: string; timestamp?: string }>;
 }
 
 interface Message {
@@ -47,12 +49,31 @@ function parseSseBlock(block: string): { event: string; data: string } | null {
   return { event, data };
 }
 
-export function AgentChat({ projectId }: Props) {
-  const [messages, setMessages] = useState<Message[]>([]);
+export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
+  // Track the previous sessionId to reset state when it changes (derived state pattern)
+  const [prevSessionId, setPrevSessionId] = useState<string | undefined>(sessionId);
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      return initialMessages.map(m => ({ role: m.role, content: m.content }));
+    }
+    return [];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [toolActivity, setToolActivity] = useState<ToolActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived state: reset messages when sessionId changes (render-phase setState, React-safe pattern)
+  if (prevSessionId !== sessionId) {
+    setPrevSessionId(sessionId);
+    const mapped = (initialMessages && initialMessages.length > 0)
+      ? initialMessages.map(m => ({ role: m.role, content: m.content }))
+      : [];
+    setMessages(mapped);
+    setError(null);
+    setToolActivity(null);
+  }
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -82,7 +103,7 @@ export function AgentChat({ projectId }: Props) {
       const response = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, projectId }),
+        body: JSON.stringify({ messages: newMessages, projectId, sessionId }),
         signal: abortRef.current.signal,
       });
 
@@ -187,7 +208,7 @@ export function AgentChat({ projectId }: Props) {
             Agente Kanban
           </p>
           <p className="text-[10px] text-[#8b949e] leading-tight">
-            Amazon Bedrock
+            Claude Agent SDK
           </p>
         </div>
       </div>

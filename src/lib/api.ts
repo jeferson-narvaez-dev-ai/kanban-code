@@ -94,3 +94,36 @@ export const setupHarness = (projectId: string) =>
   api.post<{ success: boolean; commandsDir: string; skills: Array<{ filename: string; status: string }> }>(
     `/projects/${projectId}/harness`
   ).then(r => r.data);
+
+// --- Sessions ---
+export interface ChatSession {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatSessionFull extends ChatSession {
+  messages: ChatMessage[];
+}
+
+export const listSessions = (projectId: string) =>
+  api.get<ChatSession[]>(`/projects/${projectId}/sessions`).then(r => r.data);
+
+export const createSession = (projectId: string, id: string, name?: string) =>
+  api.post<ChatSession>(`/projects/${projectId}/sessions`, { id, name }).then(r => r.data);
+
+export const getSession = (projectId: string, sessionId: string) =>
+  api.get<ChatSessionFull>(`/projects/${projectId}/sessions/${sessionId}`).then(r => r.data);
+
+export const deleteSession = (projectId: string, sessionId: string) =>
+  api.delete(`/projects/${projectId}/sessions/${sessionId}`).then(r => r.data);
+
+export const renameSession = (projectId: string, sessionId: string, name: string) =>
+  api.patch(`/projects/${projectId}/sessions/${sessionId}`, { name }).then(r => r.data);

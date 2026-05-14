@@ -8,15 +8,21 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { ChevronRight, Home, TerminalSquare } from 'lucide-react';
+import { Bot, ChevronRight, Home, TerminalSquare } from 'lucide-react';
 import { useStore } from '@tanstack/react-store';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { Priority, Project, Status, Task } from '../types';
 import { useKanban } from '../hooks/useKanban';
+import { useKanbanSocket } from '../hooks/useKanbanSocket';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
 import { TerminalPanel } from './TerminalPanel';
+import { AgentChat } from './AgentChat';
+import { InitProjectModal } from './InitProjectModal';
 import { uiStore, toggleTerminal } from '../store/uiStore';
+import { getProject } from '../api/client';
+import type { Project as ApiProject } from '../../shared/types';
 
 type FilterValue = Priority | 'all';
 
@@ -58,12 +64,24 @@ export function KanbanBoard({
     id: boardId,
   });
 
+  // WebSocket — keeps TanStack Query cache in sync with server events
+  useKanbanSocket(mode === 'project' ? (projectId ?? null) : null);
+
   const { showTerminal } = useStore(uiStore);
   const [filter, setFilter] = useState<FilterValue>('all');
+  const [showAgent, setShowAgent] = useState(false);
 
   const currentProject = mode === 'project'
     ? projects.find(p => p.id === projectId)
     : undefined;
+
+  // Fetch the authoritative project record (includes `initialized` flag)
+  const { data: apiProject, refetch: refetchApiProject } = useQuery<ApiProject>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProject(projectId!),
+    enabled: mode === 'project' && Boolean(projectId),
+  });
+
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -120,6 +138,16 @@ export function KanbanBoard({
 
   // Accent color for the header accent: use epic color if in epic mode, otherwise blue
   const accentColor = mode === 'epic' && epicColor ? epicColor : '#58a6ff';
+
+  // Guard: show initialization modal if the project has not been set up yet
+  if (mode === 'project' && apiProject && !apiProject.initialized) {
+    return (
+      <InitProjectModal
+        project={apiProject}
+        onClose={() => void refetchApiProject()}
+      />
+    );
+  }
 
   return (
     <div className="h-screen bg-[#0d1117] flex flex-col">
@@ -189,49 +217,81 @@ export function KanbanBoard({
               <TerminalSquare size={13} aria-hidden="true" />
               <span>Terminal</span>
             </button>
+
+            {/* Agent chat toggle — only available in project mode */}
+            {mode === 'project' && projectId && (
+              <button
+                onClick={() => setShowAgent((v) => !v)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
+                  showAgent
+                    ? 'bg-[#1f6feb] text-white border-[#1f6feb]'
+                    : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border-[#30363d] hover:border-[#8b949e]'
+                )}
+                aria-pressed={showAgent}
+                aria-label="Toggle agent chat"
+                title="Toggle agent chat"
+              >
+                <Bot size={13} aria-hidden="true" />
+                <span>Agente</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Board */}
-      <main className="flex-1 px-6 py-6 overflow-auto">
-        <div className="max-w-7xl mx-auto">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-4 items-start">
-              {columns.map((column) => (
-                <Column
-                  key={column.id}
-                  column={column}
-                  filterPriority={filter}
-                  boardMode={mode}
-                  availableProjects={projects}
-                  onAddTask={addTask}
-                  onEditTask={editTask}
-                  onDeleteTask={deleteTask}
-                />
-              ))}
-            </div>
-
-            <DragOverlay>
-              {activeTask ? (
-                <div className="rotate-1 opacity-95">
-                  <TaskCard
-                    task={activeTask}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    projects={projects}
+      {/* Board + Agent sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Board */}
+        <main className="flex-1 px-6 py-6 overflow-auto">
+          <div className="max-w-7xl mx-auto">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-4 items-start">
+                {columns.map((column) => (
+                  <Column
+                    key={column.id}
+                    column={column}
+                    filterPriority={filter}
+                    boardMode={mode}
+                    availableProjects={projects}
+                    onAddTask={addTask}
+                    onEditTask={editTask}
+                    onDeleteTask={deleteTask}
                   />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </div>
-      </main>
+                ))}
+              </div>
+
+              <DragOverlay>
+                {activeTask ? (
+                  <div className="rotate-1 opacity-95">
+                    <TaskCard
+                      task={activeTask}
+                      onEdit={() => {}}
+                      onDelete={() => {}}
+                      projects={projects}
+                    />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        </main>
+
+        {/* Agent chat sidebar */}
+        {showAgent && mode === 'project' && projectId && (
+          <aside
+            className="w-80 flex-shrink-0 border-l border-[#30363d] flex flex-col"
+            aria-label="Agent chat panel"
+          >
+            <AgentChat projectId={projectId} />
+          </aside>
+        )}
+      </div>
 
       {/* Terminal panel */}
       {showTerminal && (

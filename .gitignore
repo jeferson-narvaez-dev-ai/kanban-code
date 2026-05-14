@@ -25,6 +25,9 @@ build/
 .env.*
 !.env.example
 *.local
+.env.kanban
+.env.local
+*.env.local
 
 # Testing / coverage
 coverage/

@@ -1,35 +1,43 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { connectDB } from './db';
+import { config } from './config';
 import projectsRouter from './routes/projects';
-import epicsRouter from './routes/epics';
 import tasksRouter from './routes/tasks';
+import agentRouter from './routes/agent';
 import { setupTerminalWS } from './terminal';
+import { startFileWatcher } from './watcher/fileWatcher';
 
 const app = express();
-const PORT = process.env.PORT ?? 3001;
 
 app.use(cors());
 app.use(express.json());
 
 app.use('/api/projects', projectsRouter);
-app.use('/api/epics', epicsRouter);
-app.use('/api/tasks', tasksRouter);
+app.use('/api/projects/:projectId/tasks', tasksRouter);
+app.use('/api/agent', agentRouter);
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: '/terminal' });
 setupTerminalWS(wss);
 
-connectDB()
-  .then(() => {
-    httpServer.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to connect to MongoDB:', err);
-    process.exit(1);
+const kanbanWss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+kanbanWss.on('connection', (ws) => {
+  ws.send(JSON.stringify({ type: 'connected', message: 'Kanban WS ready' }));
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data.toString()) as { type?: string };
+      if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'pong' }));
+    } catch {
+      // ignore malformed messages
+    }
   });
+});
+
+startFileWatcher(kanbanWss);
+
+httpServer.listen(config.port, () => {
+  console.log(`Server running on http://localhost:${config.port}`);
+});

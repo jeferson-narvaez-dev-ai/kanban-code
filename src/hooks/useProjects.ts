@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Project } from '../types';
 import * as api from '../lib/api';
 
 export function useProjects() {
   const qc = useQueryClient();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['projects'],
@@ -15,8 +16,10 @@ export function useProjects() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['projects'] });
 
   const createProjectMutation = useMutation({
-    mutationFn: (data: Omit<Project, 'createdAt'> & { createdAt?: string }) =>
-      api.createProject(data),
+    mutationFn: (name: string) => {
+      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return api.createProject({ id: slug, name });
+    },
     onSuccess: invalidate,
   });
 
@@ -25,51 +28,12 @@ export function useProjects() {
     onSuccess: invalidate,
   });
 
-  const openFolder = useCallback(async () => {
-    let folderName: string | null = null;
+  const openFolder = useCallback(() => {
+    setShowCreateModal(true);
+  }, []);
 
-    let localPath: string | undefined;
-
-    if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) {
-      try {
-        const handle = await (window as Window & typeof globalThis & {
-          showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
-        }).showDirectoryPicker();
-        folderName = handle.name;
-      } catch {
-        // User cancelled or permission denied — do nothing
-        return;
-      }
-
-      const promptedPath = window.prompt(
-        `Local path for "${folderName}":`,
-        `~/path/to/${folderName}`
-      );
-      // If user cancels the path prompt, still create the project but without a path
-      localPath = promptedPath || undefined;
-    } else {
-      // Fallback for browsers that don't support File System Access API
-      folderName = window.prompt('Enter a project name:');
-      if (!folderName || folderName.trim() === '') return;
-      folderName = folderName.trim();
-
-      const promptedPath = window.prompt(
-        `Local path for "${folderName}":`,
-        `~/path/to/${folderName}`
-      );
-      localPath = promptedPath || undefined;
-    }
-
-    if (!folderName) return;
-
-    // Usa el nombre como slug (minúsculas, espacios → guiones)
-    const slug = folderName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    createProjectMutation.mutate({
-      id: slug,
-      name: folderName,
-      createdAt: new Date().toISOString(),
-      path: localPath,
-    });
+  const createProject = useCallback((name: string) => {
+    createProjectMutation.mutate(name);
   }, [createProjectMutation]);
 
   const deleteProject = useCallback(
@@ -77,5 +41,5 @@ export function useProjects() {
     [deleteProjectMutation]
   );
 
-  return { projects, openFolder, deleteProject };
+  return { projects, openFolder, createProject, showCreateModal, setShowCreateModal, deleteProject };
 }

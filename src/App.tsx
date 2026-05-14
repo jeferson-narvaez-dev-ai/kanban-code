@@ -6,6 +6,7 @@ import { useProjects } from './hooks/useProjects';
 import { useEpics } from './hooks/useEpics';
 import { KanbanBoard } from './components/KanbanBoard';
 import { HomeScreen } from './components/HomeScreen';
+import { CreateProjectModal } from './components/CreateProjectModal';
 
 function App() {
   const { view, activeEpicId, activeProjectId } = useStore(uiStore);
@@ -22,7 +23,7 @@ function App() {
     refetchInterval: 3000,
   });
 
-  const { openFolder } = useProjects();
+  const { openFolder, createProject, showCreateModal, setShowCreateModal } = useProjects();
   const { createEpic } = useEpics();
 
   if (view === 'epic' && activeEpicId) {
@@ -54,14 +55,22 @@ function App() {
   }
 
   return (
-    <HomeScreen
-      epics={epics}
-      projects={projects}
-      onNavigateEpic={navigateToEpic}
-      onNavigateProject={navigateToProject}
-      onCreateEpic={createEpic}
-      onOpenFolder={openFolder}
-    />
+    <>
+      <HomeScreen
+        epics={epics}
+        projects={projects}
+        onNavigateEpic={navigateToEpic}
+        onNavigateProject={navigateToProject}
+        onCreateEpic={createEpic}
+        onOpenFolder={openFolder}
+      />
+      {showCreateModal && (
+        <CreateProjectModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={createProject}
+        />
+      )}
+    </>
   );
 }
 

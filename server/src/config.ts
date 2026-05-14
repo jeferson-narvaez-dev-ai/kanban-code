@@ -16,7 +16,7 @@ export const config = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
   },
   bedrock: {
-    modelId: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    modelId: process.env.BEDROCK_MODEL_ID || process.env.ANTHROPIC_MODEL || 'us.anthropic.claude-sonnet-4-6',
     mockMode: process.env.BEDROCK_MOCK === 'true',
   },
   currentProject: process.env.KANBAN_PROJECT || '',

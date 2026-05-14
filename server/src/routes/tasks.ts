@@ -6,7 +6,7 @@ import {
   deleteTask,
   moveTask,
 } from '../store/markdownStore';
-import { COLUMNS, ColumnId, Task } from '../../../shared/types';
+import { COLUMNS, ColumnId, Task } from '../types';
 
 const router = Router({ mergeParams: true });
 

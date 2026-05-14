@@ -3,7 +3,7 @@ import fsSync from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import AsyncLock from 'async-lock';
-import { Task, ColumnId, COLUMNS, Project } from '../../../shared/types';
+import { Task, ColumnId, COLUMNS, Project } from '../types';
 import { config } from '../config';
 
 const lock = new AsyncLock();

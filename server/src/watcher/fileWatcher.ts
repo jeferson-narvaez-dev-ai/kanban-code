@@ -2,7 +2,7 @@ import chokidar from 'chokidar';
 import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { config } from '../config';
-import { WsEvent, ColumnId } from '../../../shared/types';
+import { WsEvent, ColumnId } from '../types';
 
 export function startFileWatcher(wss: WebSocketServer): void {
   const watchGlob = path.join(config.workspace, '**', '.kanban', '*.md');

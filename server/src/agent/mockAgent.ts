@@ -1,5 +1,5 @@
 import * as store from '../store/markdownStore';
-import { COLUMNS } from '../../../shared/types';
+import { COLUMNS } from '../types';
 import { AgentChatOptions, AgentChatResult } from './bedrockAgent';
 
 export async function chat(options: AgentChatOptions): Promise<AgentChatResult> {

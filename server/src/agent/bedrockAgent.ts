@@ -7,9 +7,10 @@ import {
   ToolResultContentBlock,
   ToolResultStatus,
 } from '@aws-sdk/client-bedrock-runtime';
+import { fromIni } from '@aws-sdk/credential-providers';
 import { config } from '../config';
 import * as store from '../store/markdownStore';
-import { ColumnId, COLUMNS } from '../../../shared/types';
+import { ColumnId, COLUMNS } from '../types';
 
 // Tool definitions para Bedrock
 const TOOLS: Tool[] = [
@@ -218,14 +219,14 @@ export interface AgentChatResult {
 export async function chat(options: AgentChatOptions): Promise<AgentChatResult> {
   const { messages, projectId, onToolCall, onToolResult } = options;
 
+  const awsProfile = process.env.AWS_PROFILE;
   const client = new BedrockRuntimeClient({
     region: config.aws.region,
-    credentials: config.aws.accessKeyId
-      ? {
-          accessKeyId: config.aws.accessKeyId,
-          secretAccessKey: config.aws.secretAccessKey,
-        }
-      : undefined, // usa credenciales del entorno/IAM role si no están en config
+    credentials: awsProfile
+      ? fromIni({ profile: awsProfile })
+      : config.aws.accessKeyId
+        ? { accessKeyId: config.aws.accessKeyId, secretAccessKey: config.aws.secretAccessKey }
+        : undefined,
   });
 
   const systemPrompt = [

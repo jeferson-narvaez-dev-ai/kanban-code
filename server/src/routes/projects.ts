@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { config } from '../config';
 import { listProjects, initProject, readColumn, archiveDone } from '../store/markdownStore';
-import { COLUMNS } from '../../../shared/types';
+import { COLUMNS } from '../types';
 
 const router = Router();
 

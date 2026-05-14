@@ -25,9 +25,16 @@ router.post('/chat', async (req: Request, res: Response) => {
   };
 
   try {
-    const agentModule = config.bedrock.mockMode
-      ? await import('../agent/mockAgent')
-      : await import('../agent/bedrockAgent');
+    const engine = process.env.AGENT_ENGINE || config.agentEngine;
+
+    let agentModule;
+    if (config.bedrock.mockMode) {
+      agentModule = await import('../agent/mockAgent');
+    } else if (engine === 'claude-code') {
+      agentModule = await import('../agent/claudeCodeAgent');
+    } else {
+      agentModule = await import('../agent/bedrockAgent');
+    }
 
     const result = await agentModule.chat({
       messages,

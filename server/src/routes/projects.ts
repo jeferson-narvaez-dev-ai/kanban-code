@@ -31,19 +31,20 @@ router.get('/', async (_req: Request, res: Response) => {
 // POST /api/projects
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id } = req.body as { id?: string };
+    const { id, name, path: projectPath } = req.body as { id?: string; name?: string; path?: string };
     if (!id || typeof id !== 'string' || !id.trim()) {
       res.status(400).json({ error: 'Missing required field: id' });
       return;
     }
     const projectId = id.trim();
-    await initProject(projectId);
+    await initProject(projectId, { name: name ?? projectId, path: projectPath });
     res.status(201).json({
       id: projectId,
-      name: projectId,
+      name: name ?? projectId,
       workspacePath: path.join(config.workspace, projectId, '.kanban'),
       initialized: true,
       taskCount: 0,
+      path: projectPath,
     });
   } catch (err) {
     console.error(err);

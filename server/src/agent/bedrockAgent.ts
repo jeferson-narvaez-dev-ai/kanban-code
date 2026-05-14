@@ -8,6 +8,9 @@ import {
   ToolResultStatus,
 } from '@aws-sdk/client-bedrock-runtime';
 import { fromIni } from '@aws-sdk/credential-providers';
+import { promises as fsPromises } from 'fs';
+import path from 'path';
+import os from 'os';
 import { config } from '../config';
 import * as store from '../store/markdownStore';
 import { ColumnId, COLUMNS } from '../types';
@@ -144,6 +147,57 @@ const TOOLS: Tool[] = [
       },
     },
   },
+  {
+    toolSpec: {
+      name: 'list_directory',
+      description: 'Lista archivos y directorios en el proyecto. Úsalo para explorar la estructura del código fuente.',
+      inputSchema: {
+        json: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            subpath: { type: 'string', description: 'Subdirectorio relativo al proyecto (opcional, default: raíz)' },
+          },
+          required: ['projectId'],
+        },
+      },
+    },
+  },
+  {
+    toolSpec: {
+      name: 'read_file',
+      description: 'Lee el contenido de un archivo del proyecto. Úsalo para entender el código y crear tareas relevantes.',
+      inputSchema: {
+        json: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            filePath: { type: 'string', description: 'Ruta relativa al archivo dentro del proyecto' },
+            maxLines: { type: 'number', description: 'Máximo de líneas a leer (default: 200)' },
+          },
+          required: ['projectId', 'filePath'],
+        },
+      },
+    },
+  },
+  {
+    toolSpec: {
+      name: 'search_in_files',
+      description: 'Busca texto o patrones en los archivos del proyecto. Útil para encontrar TODOs, FIXMEs, funciones, etc.',
+      inputSchema: {
+        json: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            pattern: { type: 'string', description: 'Texto o patrón a buscar' },
+            glob: { type: 'string', description: 'Patrón glob de archivos (ej: "**/*.go", "**/*.ts"). Default: todos los archivos de texto' },
+            maxResults: { type: 'number', description: 'Máximo de resultados (default: 20)' },
+          },
+          required: ['projectId', 'pattern'],
+        },
+      },
+    },
+  },
 ];
 
 // Executor: mapea tool name → función del markdownStore
@@ -199,6 +253,98 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     case 'create_project':
       await store.initProject(input.projectId as string);
       return { success: true, projectId: input.projectId };
+    case 'list_directory': {
+      const meta = await store.readProjectMeta(input.projectId as string);
+      if (!meta?.path) return { error: 'Project has no path configured. Set the project path first.' };
+
+      const expandedPath = (meta.path as string).replace('~', os.homedir());
+      const subpath = (input.subpath as string) || '';
+      const targetPath = path.join(expandedPath, subpath);
+
+      if (!targetPath.startsWith(expandedPath)) return { error: 'Path traversal not allowed' };
+
+      try {
+        const entries = await fsPromises.readdir(targetPath, { withFileTypes: true });
+        const result = entries
+          .filter(e => !e.name.startsWith('.') || e.name === '.kanban')
+          .map(e => ({
+            name: e.name,
+            type: e.isDirectory() ? 'directory' : 'file',
+            path: path.join(subpath, e.name),
+          }))
+          .sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        return { path: subpath || '/', entries: result, total: result.length };
+      } catch (err) {
+        return { error: `Cannot read directory: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    }
+    case 'read_file': {
+      const meta = await store.readProjectMeta(input.projectId as string);
+      if (!meta?.path) return { error: 'Project has no path configured.' };
+
+      const expandedPath = (meta.path as string).replace('~', os.homedir());
+      const filePath = path.join(expandedPath, input.filePath as string);
+
+      if (!filePath.startsWith(expandedPath)) return { error: 'Path traversal not allowed' };
+
+      try {
+        const content = await fsPromises.readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+        const maxLines = (input.maxLines as number) || 200;
+        const truncated = lines.length > maxLines;
+        return {
+          filePath: input.filePath,
+          content: truncated
+            ? lines.slice(0, maxLines).join('\n') + `\n... (${lines.length - maxLines} more lines)`
+            : content,
+          lines: lines.length,
+          truncated,
+        };
+      } catch (err) {
+        return { error: `Cannot read file: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    }
+    case 'search_in_files': {
+      const meta = await store.readProjectMeta(input.projectId as string);
+      if (!meta?.path) return { error: 'Project has no path configured.' };
+
+      const expandedPath = (meta.path as string).replace('~', os.homedir());
+      const pattern = input.pattern as string;
+      const maxResults = (input.maxResults as number) || 20;
+
+      const { execSync } = await import('child_process');
+      try {
+        const globPattern = (input.glob as string) || '';
+        const includeFlag = globPattern ? `--include="${globPattern}"` : '';
+        const cmd = `grep -rn ${includeFlag} --max-count=3 -l "${pattern.replace(/"/g, '\\"')}" "${expandedPath}" 2>/dev/null | head -${maxResults}`;
+        const files = execSync(cmd, { encoding: 'utf-8', timeout: 5000 })
+          .trim()
+          .split('\n')
+          .filter(Boolean);
+
+        const results = await Promise.all(
+          files.slice(0, maxResults).map(async (file) => {
+            try {
+              const matchCmd = `grep -n "${pattern.replace(/"/g, '\\"')}" "${file}" 2>/dev/null | head -5`;
+              const matches = execSync(matchCmd, { encoding: 'utf-8', timeout: 2000 }).trim();
+              return {
+                file: file.replace(expandedPath + '/', ''),
+                matches: matches.split('\n').filter(Boolean),
+              };
+            } catch {
+              return { file: file.replace(expandedPath + '/', ''), matches: [] };
+            }
+          })
+        );
+
+        return { pattern, results, total: results.length };
+      } catch {
+        return { pattern, results: [], total: 0, note: 'Search returned no results' };
+      }
+    }
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

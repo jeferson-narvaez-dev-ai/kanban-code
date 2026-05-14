@@ -16,9 +16,9 @@ export function useProjects() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['projects'] });
 
   const createProjectMutation = useMutation({
-    mutationFn: (name: string) => {
+    mutationFn: ({ name, path }: { name: string; path?: string }) => {
       const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      return api.createProject({ id: slug, name });
+      return api.createProject({ id: slug, name, path });
     },
     onSuccess: invalidate,
   });
@@ -32,8 +32,8 @@ export function useProjects() {
     setShowCreateModal(true);
   }, []);
 
-  const createProject = useCallback((name: string) => {
-    createProjectMutation.mutate(name);
+  const createProject = useCallback((name: string, path?: string) => {
+    createProjectMutation.mutate({ name, path });
   }, [createProjectMutation]);
 
   const deleteProject = useCallback(

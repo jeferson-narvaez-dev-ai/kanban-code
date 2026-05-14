@@ -6,6 +6,34 @@ import AsyncLock from 'async-lock';
 import { Task, ColumnId, COLUMNS, Project } from '../types';
 import { config } from '../config';
 
+// --- Project metadata ---
+
+export interface ProjectMeta {
+  id: string;
+  name: string;
+  path?: string; // ruta al código fuente del proyecto
+  createdAt: string;
+}
+
+function metaPath(projectId: string): string {
+  return path.join(config.workspace, projectId, 'meta.json');
+}
+
+export async function readProjectMeta(projectId: string): Promise<ProjectMeta | null> {
+  try {
+    const content = await fs.readFile(metaPath(projectId), 'utf-8');
+    return JSON.parse(content) as ProjectMeta;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeProjectMeta(meta: ProjectMeta): Promise<void> {
+  const dir = path.join(config.workspace, meta.id);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(metaPath(meta.id), JSON.stringify(meta, null, 2), 'utf-8');
+}
+
 const lock = new AsyncLock();
 
 // --- Task parsing ---
@@ -19,7 +47,7 @@ function generateTaskId(existing: string[]): string {
 }
 
 function parseTasksFromMarkdown(content: string, column: ColumnId): Task[] {
-  const taskRegex = /^## (TASK-\d+): (.+?)$([\s\S]*?)(?=^## TASK-|\Z)/gm;
+  const taskRegex = /^## (TASK-\d+): (.+?)$([\s\S]*?)(?=^## TASK-|$)/gm;
   const tasks: Task[] = [];
   let match;
   while ((match = taskRegex.exec(content)) !== null) {
@@ -164,12 +192,16 @@ export async function listProjects(): Promise<Project[]> {
         try {
           await fs.access(kanbanPath);
           initialized = true;
-        } catch {}
+        } catch {
+          // kanban directory does not exist — project is not initialized
+        }
+        const meta = await readProjectMeta(entry.name);
         return {
           id: entry.name,
-          name: entry.name,
+          name: meta?.name ?? entry.name,
           workspacePath: kanbanPath,
           initialized,
+          path: meta?.path,
         };
       })
     );
@@ -179,7 +211,7 @@ export async function listProjects(): Promise<Project[]> {
   }
 }
 
-export async function initProject(projectId: string): Promise<void> {
+export async function initProject(projectId: string, meta?: Partial<ProjectMeta>): Promise<void> {
   const kanbanPath = path.join(config.workspace, projectId, '.kanban');
   await fs.mkdir(kanbanPath, { recursive: true });
   for (const col of COLUMNS) {
@@ -189,4 +221,10 @@ export async function initProject(projectId: string): Promise<void> {
       await fs.writeFile(filePath, `# ${label}\n\n<!-- tasks -->\n`, 'utf-8');
     }
   }
+  await writeProjectMeta({
+    id: projectId,
+    name: meta?.name ?? projectId,
+    path: meta?.path,
+    createdAt: meta?.createdAt ?? new Date().toISOString(),
+  });
 }

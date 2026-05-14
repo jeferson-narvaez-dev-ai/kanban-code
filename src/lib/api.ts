@@ -13,8 +13,8 @@ export const getProjects = () =>
       createdAt: new Date().toISOString(), // el nuevo backend no guarda createdAt
     } as Project)));
 
-export const createProject = (data: { id: string; name?: string }) =>
-  api.post('/projects', { id: data.id }).then(r => r.data);
+export const createProject = (data: { id: string; name?: string; path?: string }) =>
+  api.post('/projects', { id: data.id, name: data.name, path: data.path }).then(r => r.data);
 
 export const deleteProject = (id: string) =>
   api.delete(`/projects/${id}`);

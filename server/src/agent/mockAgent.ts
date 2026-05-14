@@ -22,6 +22,13 @@ export async function chat(options: AgentChatOptions): Promise<AgentChatResult> 
     };
   }
 
+  if (/explorar|explore|listar|lista|archivos|files|analizar|analyze|código|code/i.test(lastMessage)) {
+    return {
+      response: `[MOCK] Para explorar archivos del proyecto, el proyecto debe tener configurado un path. Configura el path del proyecto en la UI al crearlo.`,
+      toolCallCount: 0,
+    };
+  }
+
   return {
     response: `[MOCK MODE] Servidor sin credenciales Bedrock. Mensaje recibido: "${lastMessage}". Configura .env.kanban para usar el agente real.`,
     toolCallCount: 0,

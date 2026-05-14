@@ -3,12 +3,13 @@ import { X, FolderOpen } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
-  onCreate: (name: string) => void;
+  onCreate: (name: string, path?: string) => void;
 }
 
 export function CreateProjectModal({ onClose, onCreate }: Props) {
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState(false);
+  const [projectPath, setProjectPath] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function CreateProjectModal({ onClose, onCreate }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setNameError(true); return; }
-    onCreate(name.trim());
+    onCreate(name.trim(), projectPath.trim() || undefined);
     onClose();
   }
 
@@ -70,6 +71,23 @@ export function CreateProjectModal({ onClose, onCreate }: Props) {
                 Workspace slug: <span className="font-mono text-[#8b949e]">{slug}</span>
               </p>
             )}
+          </div>
+
+          <div>
+            <label htmlFor="project-path" className="block text-xs font-medium text-[#8b949e] mb-1.5">
+              Project path <span className="text-[#484f58]">(optional)</span>
+            </label>
+            <input
+              id="project-path"
+              type="text"
+              value={projectPath}
+              onChange={(e) => setProjectPath(e.target.value)}
+              placeholder="~/Documents/GitHub/my-project"
+              className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] outline-none focus:ring-2 focus:ring-[#58a6ff] font-mono"
+            />
+            <p className="text-[#484f58] text-xs mt-1">
+              Path to the source code — lets the AI agent explore your files
+            </p>
           </div>
 
           <p className="text-[#484f58] text-xs">

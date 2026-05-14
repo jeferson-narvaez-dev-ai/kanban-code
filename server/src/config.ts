@@ -20,4 +20,5 @@ export const config = {
     mockMode: process.env.BEDROCK_MOCK === 'true',
   },
   currentProject: process.env.KANBAN_PROJECT || '',
+  agentEngine: (process.env.AGENT_ENGINE as 'bedrock' | 'claude-code') || 'claude-code',
 } as const;

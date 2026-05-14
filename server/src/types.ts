@@ -19,6 +19,7 @@ export interface Project {
   workspacePath: string; // ruta absoluta al directorio .kanban/
   initialized: boolean;
   taskCount?: number;
+  path?: string;        // ruta al código fuente del proyecto
 }
 
 export interface Column {

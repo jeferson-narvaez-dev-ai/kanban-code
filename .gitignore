@@ -10,6 +10,13 @@ lerna-debug.log*
 # Dependencies
 node_modules/
 server/node_modules/
+cli/node_modules/
+
+# Lock files — solo se usa pnpm-lock.yaml
+package-lock.json
+server/package-lock.json
+cli/package-lock.json
+yarn.lock
 
 # Build output
 dist/

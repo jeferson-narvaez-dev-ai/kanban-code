@@ -62,8 +62,10 @@ export function useProjects() {
 
     if (!folderName) return;
 
+    // Usa el nombre como slug (minúsculas, espacios → guiones)
+    const slug = folderName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     createProjectMutation.mutate({
-      id: crypto.randomUUID(),
+      id: slug,
       name: folderName,
       createdAt: new Date().toISOString(),
       path: localPath,

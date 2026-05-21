@@ -73,50 +73,6 @@ mueva tareas según criterios, o responda preguntas sobre el estado del proyecto
 Mensaje inicial: $ARGUMENTS
 `,
     },
-    {
-      dir: '.claude/commands',
-      filename: 'kanban-research.md',
-      content: `---
-description: Añadir una nota de investigación al proyecto
----
-Crea una nueva nota de investigación en \`research/\` del proyecto Kanban activo.
-
-Usa la siguiente estructura para el archivo \`research/{slug}.md\`:
-\`\`\`
-# {título}
-
-**Fecha:** {fecha}
-**Contexto:** {contexto}
-
-## Hallazgos
-
-{contenido}
-
-## Referencias
-\`\`\`
-
-Nombre del archivo: convierte el argumento a slug (minúsculas, guiones).
-Argumento: $ARGUMENTS
-`,
-    },
-    {
-      dir: '.claude/commands',
-      filename: 'kanban-explore.md',
-      content: `---
-description: Explorar y analizar el código del proyecto para generar tareas
----
-Explora el código fuente del proyecto Kanban activo y genera tareas relevantes.
-
-Pasos:
-1. Usa list_directory para ver la estructura del proyecto
-2. Usa read_file para leer archivos clave (README, main entry points, config)
-3. Usa search_in_files para encontrar TODOs, FIXMEs, y patrones de interés
-4. Genera un resumen de hallazgos
-5. Propone tareas concretas para el backlog basadas en el análisis
-
-Foco del análisis: $ARGUMENTS
-`,
-    },
   ];
 }
 

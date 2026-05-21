@@ -1,5 +1,5 @@
 export type Priority = 'low' | 'medium' | 'high';
-export type Status = 'todo' | 'in-progress' | 'done';
+export type Status = 'todo' | 'in-progress' | 'waiting-approval' | 'done';
 
 export interface Project {
   id: string;       // crypto.randomUUID()
@@ -31,6 +31,9 @@ export interface Task {
   parentProjectId?: string;
   contextType?: 'epic' | 'project';
   contextId?: string;
+  role?: string;           // "As a {role}"
+  goal?: string;           // "I want to {goal}"
+  value?: string;          // "so that {value}"
 }
 
 export interface Column {

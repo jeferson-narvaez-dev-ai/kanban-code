@@ -1,3 +1,12 @@
+export interface Epic {
+  id: string;           // slug, e.g. "user-auth"
+  name: string;
+  description?: string;
+  color: string;        // hex
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Task {
   id: string;           // TASK-001, TASK-002, etc.
   title: string;
@@ -7,11 +16,14 @@ export interface Task {
   column: ColumnId;
   createdAt: string;    // ISO date string
   updatedAt?: string;
+  role?: string;        // "As a {role}"
+  goal?: string;        // "I want to {goal}"
+  value?: string;       // "so that {value}"
 }
 
-export type ColumnId = 'backlog' | 'in-progress' | 'review' | 'done';
+export type ColumnId = 'backlog' | 'in-progress' | 'waiting-approval' | 'review' | 'done';
 
-export const COLUMNS: ColumnId[] = ['backlog', 'in-progress', 'review', 'done'];
+export const COLUMNS: ColumnId[] = ['backlog', 'in-progress', 'waiting-approval', 'review', 'done'];
 
 export interface Project {
   id: string;           // slug del nombre

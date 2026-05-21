@@ -3,8 +3,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { config } from '../config';
-import { listProjects, initProject, readColumn, archiveDone, readProjectMeta } from '../store/markdownStore';
-import { COLUMNS } from '../types';
+import { listProjects, initProject, readColumn, archiveDone, readProjectMeta, listEpics, createEpic, updateEpic, deleteEpic } from '../store/markdownStore';
+import { COLUMNS, Epic } from '../types';
 
 const router = Router();
 
@@ -245,6 +245,62 @@ router.post('/:id/harness', async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to install harness skills' });
+  }
+});
+
+// GET /api/projects/:id/epics
+router.get('/:id/epics', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params['id']);
+    const epics = await listEpics(id);
+    res.json(epics);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch epics' });
+  }
+});
+
+// POST /api/projects/:id/epics
+router.post('/:id/epics', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params['id']);
+    const { id: epicId, name, description, color } = req.body as { id?: string; name?: string; description?: string; color?: string };
+    if (!epicId || !name || !color) {
+      res.status(400).json({ error: 'Missing required fields: id, name, color' });
+      return;
+    }
+    const epic = await createEpic(id, { id: epicId, name, description, color });
+    res.status(201).json(epic);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create epic' });
+  }
+});
+
+// PATCH /api/projects/:id/epics/:epicId
+router.patch('/:id/epics/:epicId', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params['id']);
+    const epicId = String(req.params['epicId']);
+    const patch = req.body as Partial<Omit<Epic, 'id' | 'createdAt'>>;
+    const epic = await updateEpic(id, epicId, patch);
+    res.json(epic);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update epic' });
+  }
+});
+
+// DELETE /api/projects/:id/epics/:epicId
+router.delete('/:id/epics/:epicId', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params['id']);
+    const epicId = String(req.params['epicId']);
+    await deleteEpic(id, epicId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete epic' });
   }
 });
 

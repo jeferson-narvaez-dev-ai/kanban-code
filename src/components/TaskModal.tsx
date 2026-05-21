@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Priority, Project, Status, Task } from '../types';
+import type { Epic } from '../../shared/types';
 
 interface TaskModalProps {
   mode: 'create' | 'edit';
@@ -8,6 +9,7 @@ interface TaskModalProps {
   defaultStatus?: Status;
   task?: Task;
   availableProjects?: Project[];
+  epics?: Epic[];
   onClose: () => void;
   onSubmit: (data: Omit<Task, 'id' | 'createdAt'>) => void;
 }
@@ -18,6 +20,7 @@ export function TaskModal({
   defaultStatus = 'todo',
   task,
   availableProjects = [],
+  epics = [],
   onClose,
   onSubmit,
 }: TaskModalProps) {
@@ -26,6 +29,10 @@ export function TaskModal({
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium');
   const [tagsInput, setTagsInput] = useState((task?.tags ?? []).join(', '));
   const [projectId, setProjectId] = useState<string>(task?.projectId ?? '');
+  const [epicId, setEpicId] = useState<string>(task?.epicId ?? '');
+  const [role, setRole] = useState(task?.role ?? '');
+  const [goal, setGoal] = useState(task?.goal ?? '');
+  const [value, setValue] = useState(task?.value ?? '');
   const [titleError, setTitleError] = useState(false);
 
   const titleRef = useRef<HTMLInputElement>(null);
@@ -56,6 +63,10 @@ export function TaskModal({
       status: task?.status ?? defaultStatus,
       tags: tags.length ? tags : undefined,
       projectId: projectId || undefined,
+      epicId: epicId || undefined,
+      role: role.trim() || undefined,
+      goal: goal.trim() || undefined,
+      value: value.trim() || undefined,
     });
     onClose();
   }
@@ -151,6 +162,74 @@ export function TaskModal({
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
+          </div>
+
+          {/* Epic */}
+          {epics.length > 0 && (
+            <div>
+              <label
+                htmlFor="task-epic"
+                className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
+              >
+                Epic
+              </label>
+              <select
+                id="task-epic"
+                value={epicId}
+                onChange={(e) => setEpicId(e.target.value)}
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                aria-label="Linked epic"
+              >
+                <option value="">None</option>
+                {epics.map((ep) => (
+                  <option key={ep.id} value={ep.id}>
+                    {ep.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* User Story */}
+          <div>
+            <p className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider">
+              User Story
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#484f58] w-16 flex-shrink-0">As a</span>
+                <input
+                  type="text"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="developer"
+                  className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
+                  aria-label="Role"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#484f58] w-16 flex-shrink-0">I want to</span>
+                <input
+                  type="text"
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  placeholder="configure authentication"
+                  className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
+                  aria-label="Goal"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#484f58] w-16 flex-shrink-0">So that</span>
+                <input
+                  type="text"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="users can log in securely"
+                  className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
+                  aria-label="Value"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Project (epic mode only) */}

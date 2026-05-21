@@ -22,7 +22,7 @@ app.use('/api/projects/:projectId/sessions', sessionsRouter);
 app.use('/api/agent', agentRouter);
 
 const httpServer = createServer(app);
-const kanbanWss = new WebSocketServer({ server: httpServer, path: '/ws' });
+export const kanbanWss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
 kanbanWss.on('connection', (ws) => {
   ws.send(JSON.stringify({ type: 'connected', message: 'Kanban WS ready' }));

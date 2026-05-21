@@ -78,4 +78,21 @@ router.post('/chat', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/stop', async (req: Request, res: Response) => {
+  const { sessionId } = req.body as { sessionId?: string };
+  if (!sessionId) {
+    res.status(400).json({ error: 'sessionId required' });
+    return;
+  }
+
+  const { runningAgents } = await import('../agent/taskAgent');
+  const controller = runningAgents.get(sessionId);
+  if (controller) {
+    controller.abort();
+    res.json({ stopped: true });
+  } else {
+    res.json({ stopped: false, reason: 'not found' });
+  }
+});
+
 export default router;

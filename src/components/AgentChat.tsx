@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { Bot, Send, X, Wrench } from 'lucide-react';
+import { Bot, Send, X, Wrench, RefreshCw } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { WsEvent } from '../../shared/types';
 import clsx from 'clsx';
+import { getSession } from '../lib/api';
 
 interface Props {
   projectId: string;
@@ -9,8 +13,10 @@ interface Props {
 }
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool';
   content: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
 }
 
 interface ToolActivity {
@@ -63,6 +69,7 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
   const [loading, setLoading] = useState(false);
   const [toolActivity, setToolActivity] = useState<ToolActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastCost, setLastCost] = useState<{ usd: number; durationMs?: number; inputTokens?: number; outputTokens?: number } | null>(null);
 
   // Derived state: reset messages when sessionId changes (render-phase setState, React-safe pattern)
   if (prevSessionId !== sessionId) {
@@ -78,6 +85,53 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Listen for background agent streaming events over WebSocket
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) || 'ws://localhost:3001/ws';
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data as string) as WsEvent;
+        if ('sessionId' in data && data.sessionId !== sessionId) return;
+
+        if (data.type === 'agent:text') {
+          setLoading(true);
+          setMessages(prev => {
+            // Accumulate text into the last assistant message if it exists and is streaming
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant' && last.content.endsWith('…')) {
+              return [...prev.slice(0, -1), { role: 'assistant', content: last.content.slice(0, -1) + data.text }];
+            }
+            return [...prev, { role: 'assistant', content: data.text }];
+          });
+          setToolActivity(null);
+        } else if (data.type === 'agent:tool') {
+          setLoading(true);
+          setMessages(prev => [...prev, {
+            role: 'tool',
+            content: '',
+            toolName: data.name,
+            toolInput: data.input,
+          }]);
+          setToolActivity({ name: data.name, input: data.input });
+        } else if (data.type === 'agent:done') {
+          setLoading(false);
+          setToolActivity(null);
+          if (data.costUsd != null) {
+            setLastCost({ usd: data.costUsd, durationMs: data.durationMs, inputTokens: data.inputTokens, outputTokens: data.outputTokens });
+          }
+        }
+      } catch {
+        // ignore malformed
+      }
+    };
+
+    return () => ws.close();
+  }, [sessionId]);
 
   // Scroll to bottom whenever messages or tool activity change
   useEffect(() => {
@@ -99,11 +153,16 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
 
     abortRef.current = new AbortController();
 
+    // Filter out tool messages before sending to API (API only accepts user/assistant)
+    const apiMessages = newMessages
+      .filter((m): m is Message & { role: 'user' | 'assistant' } => m.role !== 'tool')
+      .map(m => ({ role: m.role, content: m.content }));
+
     try {
       const response = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, projectId, sessionId }),
+        body: JSON.stringify({ messages: apiMessages, projectId, sessionId }),
         signal: abortRef.current.signal,
       });
 
@@ -187,6 +246,25 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
     abortRef.current?.abort();
   }
 
+  async function handleStop() {
+    if (!sessionId) return;
+    await fetch('/api/agent/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    });
+    setLoading(false);
+    setToolActivity(null);
+  }
+
+  async function handleRefresh() {
+    if (!sessionId) return;
+    try {
+      const full = await getSession(projectId, sessionId);
+      setMessages(full.messages.map(m => ({ role: m.role, content: m.content })));
+    } catch { /* ignore */ }
+  }
+
   function formatToolInput(input: Record<string, unknown>): string {
     const entries = Object.entries(input);
     if (entries.length === 0) return '';
@@ -203,7 +281,7 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
         <div className="flex items-center justify-center w-7 h-7 rounded-md bg-[#1f6feb] flex-shrink-0">
           <Bot size={15} className="text-white" aria-hidden="true" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[#e6edf3] leading-tight">
             Agente Kanban
           </p>
@@ -211,6 +289,21 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
             Claude Agent SDK
           </p>
         </div>
+        {lastCost && (
+          <div className="flex items-center gap-1.5 text-[10px] text-[#8b949e] flex-shrink-0" title={`Input: ${lastCost.inputTokens ?? '?'} tokens · Output: ${lastCost.outputTokens ?? '?'} tokens · Duration: ${lastCost.durationMs ? (lastCost.durationMs / 1000).toFixed(1) + 's' : '?'}`}>
+            <span className="text-[#3fb950] font-medium">${lastCost.usd.toFixed(4)}</span>
+          </div>
+        )}
+        {!loading && sessionId && (
+          <button
+            onClick={() => void handleRefresh()}
+            className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#21262d] transition-colors focus:outline-none focus:ring-1 focus:ring-[#58a6ff]"
+            aria-label="Refresh session messages"
+            title="Refresh"
+          >
+            <RefreshCw size={13} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* Messages area */}
@@ -230,26 +323,73 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
           </div>
         )}
 
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={clsx(
-              'flex',
-              msg.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
+        {messages.map((msg, idx) => {
+          if (msg.role === 'tool') {
+            return (
+              <div key={idx} className="flex justify-start">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2d2a00] border border-[#4d4400] text-[#e3b341] text-xs">
+                  <Wrench size={11} className="flex-shrink-0" aria-hidden="true" />
+                  <span className="font-semibold">{msg.toolName}</span>
+                  {msg.toolInput && Object.keys(msg.toolInput).length > 0 && (
+                    <span className="text-[#d29922] truncate max-w-[300px]">
+                      ({formatToolInput(msg.toolInput)})
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          return (
             <div
+              key={idx}
               className={clsx(
-                'max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed break-words',
-                msg.role === 'user'
-                  ? 'bg-[#1f6feb] text-white rounded-br-sm'
-                  : 'bg-[#21262d] text-[#e6edf3] border border-[#30363d] rounded-bl-sm'
+                'flex',
+                msg.role === 'user' ? 'justify-end' : 'justify-start'
               )}
             >
-              {msg.content}
+              <div
+                className={clsx(
+                  'px-3 py-2 rounded-xl text-sm leading-relaxed',
+                  msg.role === 'user'
+                    ? 'max-w-[85%] bg-[#1f6feb] text-white rounded-br-sm break-words'
+                    : 'max-w-[90%] bg-[#21262d] text-[#e6edf3] border border-[#30363d] rounded-bl-sm'
+                )}
+              >
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      code: ({ inline, children, ...props }: { inline?: boolean; children?: React.ReactNode; className?: string }) =>
+                        inline ? (
+                          <code className="bg-[#161b22] border border-[#30363d] rounded px-1 py-0.5 text-[#e6edf3] font-mono text-xs" {...props}>{children}</code>
+                        ) : (
+                          <pre className="bg-[#161b22] border border-[#30363d] rounded-md p-3 my-2 overflow-x-auto">
+                            <code className="text-[#e6edf3] font-mono text-xs" {...props}>{children}</code>
+                          </pre>
+                        ),
+                      ul: ({ children }) => <ul className="list-disc list-inside space-y-1 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="text-[#e6edf3]">{children}</li>,
+                      h1: ({ children }) => <h1 className="text-base font-bold text-[#e6edf3] mb-2 mt-3">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-sm font-bold text-[#e6edf3] mb-1.5 mt-3">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-semibold text-[#e6edf3] mb-1 mt-2">{children}</h3>,
+                      strong: ({ children }) => <strong className="font-semibold text-[#e6edf3]">{children}</strong>,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#58a6ff] hover:underline">{children}</a>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-[#30363d] pl-3 text-[#8b949e] my-2">{children}</blockquote>,
+                      hr: () => <hr className="border-[#30363d] my-3" />,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Tool activity indicator */}
         {toolActivity && (
@@ -331,14 +471,25 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
           />
 
           {loading ? (
-            <button
-              onClick={handleCancel}
-              className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-[#21262d] border border-[#30363d] text-[#f85149] hover:bg-[#3d0f0f] hover:border-[#6e1a1a] transition-colors focus:outline-none focus:ring-1 focus:ring-[#f85149]"
-              aria-label="Cancel request"
-              title="Cancel"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
+            abortRef.current ? (
+              <button
+                onClick={handleCancel}
+                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-[#21262d] border border-[#30363d] text-[#f85149] hover:bg-[#3d0f0f] hover:border-[#6e1a1a] transition-colors focus:outline-none focus:ring-1 focus:ring-[#f85149]"
+                aria-label="Cancel request"
+                title="Cancel"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                onClick={() => void handleStop()}
+                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-[#21262d] border border-[#30363d] text-[#f85149] hover:bg-[#3d0f0f] hover:border-[#6e1a1a] transition-colors focus:outline-none focus:ring-1 focus:ring-[#f85149]"
+                aria-label="Stop agent"
+                title="Stop"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )
           ) : (
             <button
               onClick={() => void sendMessage()}

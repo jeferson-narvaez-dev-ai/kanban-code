@@ -8,17 +8,17 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Home, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { Priority, Project, Status, Task } from '../types';
+import type { Epic, Project as ApiProject } from '../../shared/types';
 import { useKanban } from '../hooks/useKanban';
 import { useKanbanSocket } from '../hooks/useKanbanSocket';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
 import { InitProjectModal } from './InitProjectModal';
 import { getProject } from '../api/client';
-import type { Project as ApiProject } from '../../shared/types';
 
 type FilterValue = Priority | 'all';
 
@@ -38,6 +38,7 @@ interface KanbanBoardProps {
   projectId?: string;
   projectName?: string;
   projects: Project[];
+  epics?: Epic[];
   onNavigateHome: () => void;
 }
 
@@ -49,6 +50,7 @@ export function KanbanBoard({
   projectId,
   projectName,
   projects,
+  epics = [],
   onNavigateHome,
 }: KanbanBoardProps) {
   const boardId = mode === 'epic' ? (epicId ?? '') : (projectId ?? '');
@@ -63,6 +65,8 @@ export function KanbanBoard({
   useKanbanSocket(mode === 'project' ? (projectId ?? null) : null);
 
   const [filter, setFilter] = useState<FilterValue>('all');
+  const [epicFilter, setEpicFilter] = useState<string | 'all'>('all');
+  const [groupByEpic, setGroupByEpic] = useState(false);
 
   // Fetch the authoritative project record (includes `initialized` flag)
   const { data: apiProject, refetch: refetchApiProject } = useQuery<ApiProject>({
@@ -96,7 +100,7 @@ export function KanbanBoard({
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    const validStatuses: Status[] = ['todo', 'in-progress', 'done'];
+    const validStatuses: Status[] = ['todo', 'in-progress', 'waiting-approval', 'done'];
     let targetStatus: Status | undefined;
 
     if (validStatuses.includes(overId as Status)) {
@@ -170,23 +174,56 @@ export function KanbanBoard({
           </nav>
 
           {/* Filter chips */}
-          <div className="flex items-center gap-1.5" role="group" aria-label="Filter by priority">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={clsx(
-                  'px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                  filter === f.value
-                    ? 'bg-[#58a6ff] text-[#0d1117]'
-                    : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border border-[#30363d]'
-                )}
-                aria-pressed={filter === f.value}
-                aria-label={`Filter: ${f.label}`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5" role="group" aria-label="Filter by priority">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFilter(f.value)}
+                  className={clsx(
+                    'px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
+                    filter === f.value
+                      ? 'bg-[#58a6ff] text-[#0d1117]'
+                      : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border border-[#30363d]'
+                  )}
+                  aria-pressed={filter === f.value}
+                  aria-label={`Filter: ${f.label}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {epics.length > 0 && (
+              <>
+                <select
+                  value={epicFilter}
+                  onChange={(e) => { setEpicFilter(e.target.value); setGroupByEpic(false); }}
+                  className="bg-[#21262d] border border-[#30363d] rounded-md px-2 py-1 text-xs text-[#8b949e] hover:text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                  aria-label="Filter by epic"
+                >
+                  <option value="all">All Epics</option>
+                  {epics.map((epic) => (
+                    <option key={epic.id} value={epic.id}>
+                      {epic.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => { setGroupByEpic(v => !v); setEpicFilter('all'); }}
+                  className={clsx(
+                    'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
+                    groupByEpic
+                      ? 'bg-[#1f6feb33] text-[#58a6ff] border-[#58a6ff]'
+                      : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] border-[#30363d]'
+                  )}
+                  aria-pressed={groupByEpic}
+                  title="Group tasks by epic"
+                >
+                  <Layers size={12} />
+                  Group
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -206,6 +243,9 @@ export function KanbanBoard({
                   key={column.id}
                   column={column}
                   filterPriority={filter}
+                  epicFilter={epicFilter}
+                  epics={epics}
+                  groupByEpic={groupByEpic}
                   boardMode={mode}
                   availableProjects={projects}
                   onAddTask={addTask}
@@ -220,9 +260,11 @@ export function KanbanBoard({
                 <div className="rotate-1 opacity-95">
                   <TaskCard
                     task={activeTask}
+                    onOpen={() => {}}
                     onEdit={() => {}}
                     onDelete={() => {}}
                     projects={projects}
+                    epics={epics}
                   />
                 </div>
               ) : null}

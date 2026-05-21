@@ -20,6 +20,7 @@ export function useKanban({ mode, id }: UseKanbanOptions) {
   const columns: Column[] = [
     { id: 'todo', title: 'To Do', tasks: tasks.filter(t => t.status === 'todo') },
     { id: 'in-progress', title: 'In Progress', tasks: tasks.filter(t => t.status === 'in-progress') },
+    { id: 'waiting-approval', title: 'Waiting Approval', tasks: tasks.filter(t => t.status === 'waiting-approval') },
     { id: 'done', title: 'Done', tasks: tasks.filter(t => t.status === 'done') },
   ];
 
@@ -38,18 +39,18 @@ export function useKanban({ mode, id }: UseKanbanOptions) {
 
   const editTaskMutation = useMutation({
     mutationFn: ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) =>
-      api.updateTask(taskId, updates),
+      api.updateTask(taskId, { ...updates, contextId: id }),
     onSuccess: invalidate,
   });
 
   const deleteTaskMutation = useMutation({
-    mutationFn: (taskId: string) => api.deleteTask(taskId),
+    mutationFn: (taskId: string) => api.deleteTask(id, taskId),
     onSuccess: invalidate,
   });
 
   const moveTaskMutation = useMutation({
     mutationFn: ({ taskId, toStatus }: { taskId: string; toStatus: Status }) =>
-      api.moveTask(taskId, toStatus),
+      api.moveTask(id, taskId, toStatus),
     onSuccess: invalidate,
   });
 

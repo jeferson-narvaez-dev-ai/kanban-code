@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '@tanstack/react-store';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Kanban, FileText, Bot, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import type { Project } from '../types';
+import type { Epic } from '../../shared/types';
 import { uiStore, setActiveTab } from '../store/uiStore';
 import { KanbanBoard } from './KanbanBoard';
 import { DocsView } from './DocsView';
 import { AgentChat } from './AgentChat';
 import { SessionsSidebar } from './SessionsSidebar';
-import { setupHarness, getSession, createSession } from '../lib/api';
+import { setupHarness, getSession, createSession, listEpics } from '../lib/api';
 import type { ChatMessage } from '../lib/api';
+import type { WsEvent } from '../../shared/types';
 
 interface Props {
   projectId: string;
@@ -47,10 +50,54 @@ function NavItem({
 
 export function ProjectWorkspace({ projectId, projectName, projects, onNavigateHome }: Props) {
   const { activeTab } = useStore(uiStore);
+  const queryClient = useQueryClient();
   const [harnessState, setHarnessState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [harnessMsg, setHarnessMsg] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
   const [sessionMessages, setSessionMessages] = useState<ChatMessage[]>([]);
+
+  const { data: epics = [] } = useQuery<Epic[]>({
+    queryKey: ['epics', projectId],
+    queryFn: () => listEpics(projectId),
+  });
+
+  // Auto-navigate to Agent tab when a session is created by the server (e.g. task dragged to in-progress)
+  useEffect(() => {
+    const wsUrl =
+      (import.meta.env.VITE_WS_URL as string | undefined) ||
+      'ws://localhost:3001/ws';
+
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data as string) as WsEvent;
+        if (
+          data.type === 'session:created' &&
+          data.projectId === projectId
+        ) {
+          void queryClient.invalidateQueries({ queryKey: ['sessions', projectId] });
+          void handleSelectSession(data.sessionId);
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    };
+
+    ws.onopen = () => {
+      const ping = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30_000);
+      ws.addEventListener('close', () => clearInterval(ping));
+    };
+
+    return () => {
+      ws.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   async function handleSetupHarness() {
     setHarnessState('loading');
@@ -201,6 +248,7 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
             projectId={projectId}
             projectName={projectName}
             projects={projects}
+            epics={epics}
             onNavigateHome={onNavigateHome}
           />
         )}

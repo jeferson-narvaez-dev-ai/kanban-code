@@ -103,6 +103,14 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
         {mode === 'preview' ? (
+          filePath.endsWith('.html') ? (
+            <iframe
+              srcDoc={draftContent}
+              sandbox="allow-scripts allow-same-origin"
+              className="w-full h-full border-none bg-white"
+              title={filePath}
+            />
+          ) : (
           <div className="h-full overflow-y-auto px-6 py-5">
             <div className="prose prose-invert prose-sm max-w-none
               prose-headings:text-[#e6edf3] prose-headings:font-semibold prose-headings:border-b prose-headings:border-[#30363d] prose-headings:pb-1
@@ -122,6 +130,7 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{draftContent}</ReactMarkdown>
             </div>
           </div>
+          )
         ) : (
           <textarea
             value={draftContent}

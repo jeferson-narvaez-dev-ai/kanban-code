@@ -3,7 +3,7 @@ import fsSync from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import AsyncLock from 'async-lock';
-import { Task, ColumnId, COLUMNS, Project } from '../types';
+import { Task, ColumnId, COLUMNS, Project, Epic } from '../types';
 import { config } from '../config';
 
 // --- Project metadata ---
@@ -36,7 +36,7 @@ export async function writeProjectMeta(meta: ProjectMeta): Promise<void> {
 
 const lock = new AsyncLock();
 
-// --- Task parsing ---
+// --- Task ID generation ---
 
 function generateTaskId(existing: string[]): string {
   const nums = existing
@@ -46,101 +46,123 @@ function generateTaskId(existing: string[]): string {
   return `TASK-${String(next).padStart(3, '0')}`;
 }
 
-function parseTasksFromMarkdown(content: string, column: ColumnId): Task[] {
-  const taskRegex = /^## (TASK-\d+): (.+?)$([\s\S]*?)(?=^## TASK-|$)/gm;
-  const tasks: Task[] = [];
-  let match;
-  while ((match = taskRegex.exec(content)) !== null) {
-    const [, id, title, body] = match;
-    const parsed = matter(`---\n${body.trim()}\n---`);
-    tasks.push({
-      id,
-      title: title.trim(),
-      description: parsed.content.trim() || undefined,
-      priority: (parsed.data.priority as Task['priority']) || 'medium',
-      epicId: parsed.data.epicId,
-      column,
-      createdAt: parsed.data.createdAt || new Date().toISOString(),
-      updatedAt: parsed.data.updatedAt,
-    });
-  }
-  return tasks;
+// --- File path helpers ---
+
+function taskDirPath(projectId: string, column: ColumnId): string {
+  return path.join(config.workspace, projectId, 'tasks', column);
 }
 
-function taskToMarkdown(task: Task): string {
-  const meta = [
-    `priority: ${task.priority}`,
-    `createdAt: ${task.createdAt}`,
-    task.updatedAt ? `updatedAt: ${task.updatedAt}` : null,
-    task.epicId ? `epicId: ${task.epicId}` : null,
-  ].filter(Boolean).join('\n');
+function taskFilePath(projectId: string, column: ColumnId, taskId: string): string {
+  return path.join(config.workspace, projectId, 'tasks', column, `${taskId}.md`);
+}
 
-  return `## ${task.id}: ${task.title}\n\n${meta}\n\n${task.description || ''}\n`;
+function parseTaskFile(content: string, taskId: string, column: ColumnId): Task {
+  const parsed = matter(content);
+  return {
+    id: taskId,
+    title: parsed.data.title ?? taskId,
+    description: parsed.content.trim() || undefined,
+    priority: (parsed.data.priority as Task['priority']) || 'medium',
+    epicId: parsed.data.epicId,
+    column,
+    createdAt: parsed.data.createdAt || new Date().toISOString(),
+    updatedAt: parsed.data.updatedAt,
+    role: parsed.data.role,
+    goal: parsed.data.goal,
+    value: parsed.data.value,
+  };
+}
+
+function taskToFileContent(task: Task): string {
+  const frontmatterObj: Record<string, unknown> = {
+    title: task.title,
+    priority: task.priority,
+    createdAt: task.createdAt,
+  };
+  if (task.updatedAt) frontmatterObj.updatedAt = task.updatedAt;
+  if (task.epicId) frontmatterObj.epicId = task.epicId;
+  if (task.role) frontmatterObj.role = task.role;
+  if (task.goal) frontmatterObj.goal = task.goal;
+  if (task.value) frontmatterObj.value = task.value;
+  return matter.stringify(task.description || '', frontmatterObj);
 }
 
 // --- File operations ---
 
-function columnPath(projectId: string, column: ColumnId): string {
-  return path.join(config.workspace, projectId, 'tasks', `${column}.md`);
-}
-
 export async function readColumn(projectId: string, column: ColumnId): Promise<Task[]> {
-  const filePath = columnPath(projectId, column);
+  const dir = taskDirPath(projectId, column);
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return parseTasksFromMarkdown(content, column);
+    const entries = await fs.readdir(dir);
+    const taskFiles = entries.filter(e => /^TASK-\d+\.md$/.test(e));
+    // Sort by task number ascending
+    taskFiles.sort((a, b) => {
+      const numA = parseInt(a.replace('TASK-', '').replace('.md', ''), 10);
+      const numB = parseInt(b.replace('TASK-', '').replace('.md', ''), 10);
+      return numA - numB;
+    });
+    const tasks: Task[] = [];
+    for (const file of taskFiles) {
+      const taskId = file.replace('.md', '');
+      const filePath = path.join(dir, file);
+      const content = await fs.readFile(filePath, 'utf-8');
+      tasks.push(parseTaskFile(content, taskId, column));
+    }
+    return tasks;
   } catch {
     return [];
   }
 }
 
-export async function writeColumn(projectId: string, column: ColumnId, tasks: Task[]): Promise<void> {
-  const filePath = columnPath(projectId, column);
-  const tmpPath = `${filePath}.tmp`;
-  const header = `# ${column.charAt(0).toUpperCase() + column.slice(1)}\n\n`;
-  const content = header + tasks.map(taskToMarkdown).join('\n---\n\n');
-  await lock.acquire(filePath, async () => {
-    await fs.writeFile(tmpPath, content, 'utf-8');
-    await fs.rename(tmpPath, filePath);
-  });
-}
-
 export async function createTask(projectId: string, column: ColumnId, input: Omit<Task, 'id' | 'column' | 'createdAt'>): Promise<Task> {
-  return lock.acquire(columnPath(projectId, column), async () => {
-    const existing = await readColumn(projectId, column);
+  const dir = taskDirPath(projectId, column);
+  await fs.mkdir(dir, { recursive: true });
+
+  return lock.acquire(dir, async () => {
     const allIds = (await Promise.all(COLUMNS.map(c => readColumn(projectId, c)))).flat().map(t => t.id);
     const id = generateTaskId(allIds);
     const task: Task = { ...input, id, column, createdAt: new Date().toISOString() };
-    await writeColumn(projectId, column, [...existing, task]);
+    const filePath = taskFilePath(projectId, column, id);
+    await fs.writeFile(filePath, taskToFileContent(task), 'utf-8');
     return task;
   });
 }
 
 export async function moveTask(projectId: string, taskId: string, toColumn: ColumnId): Promise<Task> {
-  let found: Task | undefined;
   let fromColumn: ColumnId | undefined;
   for (const col of COLUMNS) {
-    const tasks = await readColumn(projectId, col);
-    const task = tasks.find(t => t.id === taskId);
-    if (task) { found = task; fromColumn = col; break; }
+    const fp = taskFilePath(projectId, col, taskId);
+    if (fsSync.existsSync(fp)) {
+      fromColumn = col;
+      break;
+    }
   }
-  if (!found || !fromColumn) throw new Error(`Task ${taskId} not found`);
-  const updated: Task = { ...found, column: toColumn, updatedAt: new Date().toISOString() };
-  const srcTasks = (await readColumn(projectId, fromColumn)).filter(t => t.id !== taskId);
-  const dstTasks = [...(await readColumn(projectId, toColumn)), updated];
-  await writeColumn(projectId, fromColumn, srcTasks);
-  await writeColumn(projectId, toColumn, dstTasks);
-  return updated;
+  if (!fromColumn) throw new Error(`Task ${taskId} not found`);
+
+  const srcPath = taskFilePath(projectId, fromColumn, taskId);
+  const dstPath = taskFilePath(projectId, toColumn, taskId);
+
+  return lock.acquire([srcPath, dstPath].sort().join('|'), async () => {
+    const content = await fs.readFile(srcPath, 'utf-8');
+    const task = parseTaskFile(content, taskId, fromColumn as ColumnId);
+    const updated: Task = { ...task, column: toColumn, updatedAt: new Date().toISOString() };
+    await fs.mkdir(taskDirPath(projectId, toColumn), { recursive: true });
+    await fs.writeFile(dstPath, taskToFileContent(updated), 'utf-8');
+    await fs.unlink(srcPath);
+    return updated;
+  });
 }
 
 export async function updateTask(projectId: string, taskId: string, patch: Partial<Omit<Task, 'id' | 'column' | 'createdAt'>>): Promise<Task> {
   for (const col of COLUMNS) {
-    const tasks = await readColumn(projectId, col);
-    const idx = tasks.findIndex(t => t.id === taskId);
-    if (idx !== -1) {
-      tasks[idx] = { ...tasks[idx], ...patch, updatedAt: new Date().toISOString() };
-      await writeColumn(projectId, col, tasks);
-      return tasks[idx];
+    const fp = taskFilePath(projectId, col, taskId);
+    if (fsSync.existsSync(fp)) {
+      return lock.acquire(fp, async () => {
+        const content = await fs.readFile(fp, 'utf-8');
+        const task = parseTaskFile(content, taskId, col);
+        const updated: Task = { ...task, ...patch, updatedAt: new Date().toISOString() };
+        await fs.writeFile(fp, taskToFileContent(updated), 'utf-8');
+        return updated;
+      });
     }
   }
   throw new Error(`Task ${taskId} not found`);
@@ -148,14 +170,14 @@ export async function updateTask(projectId: string, taskId: string, patch: Parti
 
 export async function deleteTask(projectId: string, taskId: string): Promise<void> {
   for (const col of COLUMNS) {
-    const tasks = await readColumn(projectId, col);
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
+    const fp = taskFilePath(projectId, col, taskId);
+    if (fsSync.existsSync(fp)) {
       const trashDir = path.join(config.workspace, projectId, 'tasks', '.trash');
       await fs.mkdir(trashDir, { recursive: true });
       const trashFile = path.join(trashDir, `${taskId}-${Date.now()}.md`);
-      await fs.writeFile(trashFile, taskToMarkdown(task), 'utf-8');
-      await writeColumn(projectId, col, tasks.filter(t => t.id !== taskId));
+      const content = await fs.readFile(fp, 'utf-8');
+      await fs.writeFile(trashFile, content, 'utf-8');
+      await fs.unlink(fp);
       return;
     }
   }
@@ -173,13 +195,96 @@ export async function archiveDone(projectId: string, olderThanDays = 30): Promis
 
   const archiveDir = path.join(config.workspace, projectId, 'tasks', 'archive');
   await fs.mkdir(archiveDir, { recursive: true });
-  const archiveFile = path.join(archiveDir, `done-${new Date().toISOString().split('T')[0]}.md`);
-  const content = `# Archived ${new Date().toISOString()}\n\n` + toArchive.map(taskToMarkdown).join('\n---\n\n');
-  await fs.writeFile(archiveFile, content, 'utf-8');
 
-  const remaining = tasks.filter(t => !toArchive.find(a => a.id === t.id));
-  await writeColumn(projectId, 'done', remaining);
+  for (const task of toArchive) {
+    const srcPath = taskFilePath(projectId, 'done', task.id);
+    const archiveFile = path.join(archiveDir, `${task.id}.md`);
+    const content = await fs.readFile(srcPath, 'utf-8');
+    await fs.writeFile(archiveFile, content, 'utf-8');
+    await fs.unlink(srcPath);
+  }
+
   return toArchive.length;
+}
+
+// --- Epic store ---
+
+function epicPath(projectId: string, epicId: string): string {
+  return path.join(config.workspace, projectId, 'epics', `${epicId}.md`);
+}
+
+function epicDirPath(projectId: string): string {
+  return path.join(config.workspace, projectId, 'epics');
+}
+
+export async function listEpics(projectId: string): Promise<Epic[]> {
+  const dir = epicDirPath(projectId);
+  try {
+    const entries = await fs.readdir(dir);
+    const epicFiles = entries.filter(e => e.endsWith('.md'));
+    const epics: Epic[] = [];
+    for (const file of epicFiles) {
+      const epicId = file.replace('.md', '');
+      const content = await fs.readFile(path.join(dir, file), 'utf-8');
+      const parsed = matter(content);
+      epics.push({
+        id: epicId,
+        name: parsed.data.name ?? epicId,
+        description: parsed.data.description,
+        color: parsed.data.color ?? '#a371f7',
+        createdAt: parsed.data.createdAt || new Date().toISOString(),
+        updatedAt: parsed.data.updatedAt,
+      });
+    }
+    return epics;
+  } catch {
+    return [];
+  }
+}
+
+export async function createEpic(projectId: string, data: Omit<Epic, 'createdAt'>): Promise<Epic> {
+  const dir = epicDirPath(projectId);
+  await fs.mkdir(dir, { recursive: true });
+  const createdAt = new Date().toISOString();
+  const epic: Epic = { ...data, createdAt };
+  const frontmatterObj: Record<string, unknown> = {
+    name: epic.name,
+    color: epic.color,
+    createdAt,
+  };
+  if (epic.description) frontmatterObj.description = epic.description;
+  const content = matter.stringify('', frontmatterObj);
+  await fs.writeFile(epicPath(projectId, epic.id), content, 'utf-8');
+  return epic;
+}
+
+export async function updateEpic(projectId: string, epicId: string, patch: Partial<Omit<Epic, 'id' | 'createdAt'>>): Promise<Epic> {
+  const fp = epicPath(projectId, epicId);
+  const content = await fs.readFile(fp, 'utf-8');
+  const parsed = matter(content);
+  const existing: Epic = {
+    id: epicId,
+    name: parsed.data.name ?? epicId,
+    description: parsed.data.description,
+    color: parsed.data.color ?? '#a371f7',
+    createdAt: parsed.data.createdAt || new Date().toISOString(),
+    updatedAt: parsed.data.updatedAt,
+  };
+  const updated: Epic = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+  const frontmatterObj: Record<string, unknown> = {
+    name: updated.name,
+    color: updated.color,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+  };
+  if (updated.description) frontmatterObj.description = updated.description;
+  await fs.writeFile(fp, matter.stringify('', frontmatterObj), 'utf-8');
+  return updated;
+}
+
+export async function deleteEpic(projectId: string, epicId: string): Promise<void> {
+  const fp = epicPath(projectId, epicId);
+  await fs.unlink(fp);
 }
 
 export async function listProjects(): Promise<Project[]> {
@@ -187,13 +292,13 @@ export async function listProjects(): Promise<Project[]> {
     const entries = await fs.readdir(config.workspace, { withFileTypes: true });
     const projects = await Promise.all(
       entries.filter(e => e.isDirectory()).map(async (entry): Promise<Project> => {
-        const tasksPath = path.join(config.workspace, entry.name, 'tasks');
+        const backlogDir = path.join(config.workspace, entry.name, 'tasks', 'backlog');
         let initialized = false;
         try {
-          await fs.access(path.join(tasksPath, 'backlog.md'));
-          initialized = true;
+          const stat = await fs.stat(backlogDir);
+          initialized = stat.isDirectory();
         } catch {
-          // tasks/backlog.md does not exist — project is not initialized
+          // tasks/backlog/ does not exist — project is not initialized
         }
         const meta = await readProjectMeta(entry.name);
         return {
@@ -217,6 +322,8 @@ export async function initProject(projectId: string, meta?: Partial<ProjectMeta>
   // Create all harness directories
   const dirs = [
     path.join(projectRoot, 'tasks'),
+    path.join(projectRoot, 'tasks', '.trash'),
+    path.join(projectRoot, 'epics'),
     path.join(projectRoot, 'research'),
     path.join(projectRoot, 'proposals', 'active'),
     path.join(projectRoot, 'proposals', 'accepted'),
@@ -231,13 +338,9 @@ export async function initProject(projectId: string, meta?: Partial<ProjectMeta>
     await fs.mkdir(dir, { recursive: true });
   }
 
-  // Create column files in tasks/
+  // Create column directories in tasks/
   for (const col of COLUMNS) {
-    const filePath = path.join(projectRoot, 'tasks', `${col}.md`);
-    if (!fsSync.existsSync(filePath)) {
-      const label = col.charAt(0).toUpperCase() + col.slice(1);
-      await fs.writeFile(filePath, `# ${label}\n\n<!-- tasks -->\n`, 'utf-8');
-    }
+    await fs.mkdir(path.join(projectRoot, 'tasks', col), { recursive: true });
   }
 
   // Create AGENTS.md if not present
@@ -248,7 +351,7 @@ export async function initProject(projectId: string, meta?: Partial<ProjectMeta>
 This file defines how AI agents should work with this project.
 
 ## Harness Structure
-- \`tasks/\` — Kanban board columns (backlog.md, in-progress.md, review.md, done.md)
+- \`tasks/\` — Kanban board columns (one directory per column, one .md file per task)
 - \`research/\` — Exploration notes and investigations
 - \`proposals/active/\` — Active change proposals
 - \`proposals/accepted/\` — Accepted/archived proposals

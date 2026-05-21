@@ -1,4 +1,4 @@
-import { Circle, Clock, CheckCircle2 } from 'lucide-react';
+import { Circle, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { Status } from '../types';
 
 interface StatusIconProps {
@@ -12,6 +12,9 @@ export function StatusIcon({ status, size = 14 }: StatusIconProps) {
   }
   if (status === 'in-progress') {
     return <Clock size={size} className="text-[#58a6ff]" aria-label="In progress" />;
+  }
+  if (status === 'waiting-approval') {
+    return <AlertCircle size={size} style={{ color: '#e3b341' }} aria-label="Waiting approval" />;
   }
   return <CheckCircle2 size={size} className="text-[#3fb950]" aria-label="Done" />;
 }

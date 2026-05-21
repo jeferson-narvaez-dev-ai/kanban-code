@@ -39,6 +39,9 @@ interface StreamResultMessage {
   subtype: 'success' | 'error';
   result?: string;
   is_error?: boolean;
+  total_cost_usd?: number;
+  duration_ms?: number;
+  usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 }
 
 type StreamMessage =
@@ -55,6 +58,8 @@ type StreamMessage =
 export interface ClaudeCodeAgentOptions {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   projectId?: string;
+  sessionId?: string;
+  signal?: AbortSignal;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
   onToolResult?: (name: string, result: unknown) => void;
   onText?: (text: string) => void;
@@ -63,6 +68,10 @@ export interface ClaudeCodeAgentOptions {
 export interface ClaudeCodeAgentResult {
   response: string;
   toolCallCount: number;
+  costUsd?: number;
+  durationMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +79,7 @@ export interface ClaudeCodeAgentResult {
 // ---------------------------------------------------------------------------
 
 export async function chat(options: ClaudeCodeAgentOptions): Promise<ClaudeCodeAgentResult> {
-  const { messages, projectId, onToolCall, onToolResult, onText } = options;
+  const { messages, projectId, onToolCall, onToolResult, onText, signal } = options;
 
   // Resolve project path
   const meta = projectId ? await store.readProjectMeta(projectId) : null;
@@ -93,14 +102,30 @@ Base URL: http://localhost:${config.port}/api
 - Create task:  POST /projects/${projectId}/tasks
   body: {"title":"...","column":"backlog","priority":"medium","description":"..."}
 - Move task:    POST /projects/${projectId}/tasks/{taskId}/move
-  body: {"toColumn":"in-progress"}
+  body: {"toColumn":"waiting-approval","source":"agent"}   ← always include source:"agent"
 - Update task:  PATCH /projects/${projectId}/tasks/{taskId}
   body: {"title":"...","priority":"high"}
 - Delete task:  DELETE /projects/${projectId}/tasks/{taskId}
 - Archive done: POST /projects/${projectId}/archive-done
 
-Columns: backlog | in-progress | review | done
+Columns: backlog | in-progress | waiting-approval | review | done
 Priorities: high | medium | low
+
+Column flow: backlog → in-progress → waiting-approval → done
+- Move to **waiting-approval** (with source:"agent") when you finish a task or have questions/blockers.
+- NEVER move a task to done yourself — that is the human's decision after review.
+- Always include "source":"agent" in move requests so the server does not re-trigger the agent.
+
+## Task File Format
+Task files (tasks/{column}/TASK-NNN.md) contain YAML frontmatter with these fields:
+- title, priority, createdAt, epicId, role, goal, value — set by users/agents
+- agentSessionId — set automatically by the system when the agent first runs; identifies the Claude session
+- totalCostUsd, runCount, lastRunAt — updated automatically after each agent run; do not write these manually
+The server automatically appends an "## Agent Runs" section after each run with cost and token details — you do not need to write this section yourself.
+Write "## Implementation Notes" and optionally "## Questions" in the task body to document your work.
+
+## Session Continuity
+If this task was previously in development and sent back to in-progress, you will receive the prior conversation history as context. Review it before continuing work.
 
 When the user asks you to create, move, or manage tasks → use curl to call the API.
 When the user asks you to explore the project → use Read/Grep/Glob on: ${projectPath}
@@ -158,9 +183,19 @@ When creating tasks, make them specific and actionable.`;
       },
     });
 
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        proc.kill('SIGTERM');
+      });
+    }
+
     let responseText = '';
     let toolCallCount = 0;
     let buffer = '';
+    let costUsd: number | undefined;
+    let durationMs: number | undefined;
+    let inputTokens: number | undefined;
+    let outputTokens: number | undefined;
 
     const processLine = (line: string) => {
       const trimmed = line.trim();
@@ -202,6 +237,10 @@ When creating tasks, make them specific and actionable.`;
           responseText = result.result;
           onText?.(result.result);
         }
+        costUsd = result.total_cost_usd;
+        durationMs = result.duration_ms;
+        inputTokens = result.usage?.input_tokens;
+        outputTokens = result.usage?.output_tokens;
       }
     };
 
@@ -236,7 +275,7 @@ When creating tasks, make them specific and actionable.`;
         return;
       }
 
-      resolve({ response: responseText, toolCallCount });
+      resolve({ response: responseText, toolCallCount, costUsd, durationMs, inputTokens, outputTokens });
     });
   });
 }

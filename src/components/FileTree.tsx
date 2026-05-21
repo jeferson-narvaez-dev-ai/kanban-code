@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, File } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, FileCode, File } from 'lucide-react';
 import clsx from 'clsx';
 import { listFiles } from '../lib/api';
 
@@ -93,6 +93,7 @@ function TreeNode({ entry, projectId, selectedPath, onSelectFile, depth }: TreeN
   }
 
   const isMd = entry.name.endsWith('.md');
+  const isHtml = entry.name.endsWith('.html') || entry.name.endsWith('.htm');
   const isSelected = selectedPath === entry.path;
 
   return (
@@ -108,7 +109,7 @@ function TreeNode({ entry, projectId, selectedPath, onSelectFile, depth }: TreeN
       aria-current={isSelected ? 'page' : undefined}
     >
       <span className="flex-shrink-0 text-[#6e7681]">
-        {isMd ? <FileText size={13} /> : <File size={13} />}
+        {isMd ? <FileText size={13} /> : isHtml ? <FileCode size={13} /> : <File size={13} />}
       </span>
       <span className="truncate">{entry.name}</span>
     </button>

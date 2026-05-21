@@ -7,6 +7,8 @@ import {
   moveTask,
 } from '../store/markdownStore';
 import { COLUMNS, ColumnId, Task } from '../types';
+import { triggerAgentForTask } from '../agent/taskAgent';
+import { kanbanWss } from '../index';
 
 const router = Router({ mergeParams: true });
 
@@ -142,7 +144,7 @@ router.post('/:id/move', async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params['projectId']);
     const id = String(req.params['id']);
-    const { toColumn } = req.body as { toColumn?: string };
+    const { toColumn, source } = req.body as { toColumn?: string; source?: 'user' | 'agent' };
 
     if (!isValidColumn(toColumn)) {
       res.status(400).json({ error: `Missing or invalid field: toColumn. Valid columns: ${COLUMNS.join(', ')}` });
@@ -151,6 +153,12 @@ router.post('/:id/move', async (req: Request, res: Response) => {
 
     const task = await moveTask(projectId, id, toColumn);
     res.json(task);
+
+    if (toColumn === 'in-progress' && source !== 'agent') {
+      triggerAgentForTask(projectId, task, kanbanWss).catch((err) => {
+        console.error('[taskAgent] Failed to trigger agent for task', task.id, err);
+      });
+    }
   } catch (err) {
     if (err instanceof Error && err.message.includes('not found')) {
       res.status(404).json({ error: err.message });

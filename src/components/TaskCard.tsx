@@ -4,14 +4,17 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import clsx from 'clsx';
 import type { Project, Task } from '../types';
+import type { Epic } from '../../shared/types';
 import { PriorityBadge } from './PriorityBadge';
 import { StatusIcon } from './StatusIcon';
 
 interface TaskCardProps {
   task: Task;
+  onOpen: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   projects?: Project[];
+  epics?: Epic[];
 }
 
 function formatDate(iso: string): string {
@@ -19,7 +22,7 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProps) {
+export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics = [] }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -52,6 +55,10 @@ export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProp
     ? projects.find((p) => p.id === task.projectId)
     : undefined;
 
+  const linkedEpic = task.epicId
+    ? epics.find((e) => e.id === task.epicId)
+    : undefined;
+
   return (
     <div
       ref={setNodeRef}
@@ -63,6 +70,7 @@ export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProp
       )}
       {...attributes}
       {...listeners}
+      onClick={() => onOpen(task)}
       aria-label={`Task: ${task.title}`}
     >
       {/* Top row: status icon + title + menu */}
@@ -70,9 +78,12 @@ export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProp
         <div className="mt-0.5 flex-shrink-0">
           <StatusIcon status={task.status} size={14} />
         </div>
-        <span className="flex-1 text-sm font-medium text-[#e6edf3] leading-snug break-words">
-          {task.title}
-        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-mono text-[#484f58] leading-none mb-0.5">{task.id}</p>
+          <span className="text-sm font-medium text-[#e6edf3] leading-snug break-words">
+            {task.title}
+          </span>
+        </div>
         {/* 3-dot menu — stop drag propagation */}
         <div
           ref={menuRef}
@@ -84,6 +95,7 @@ export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProp
               e.stopPropagation();
               setMenuOpen((v) => !v);
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="p-0.5 text-[#484f58] hover:text-[#8b949e] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
             aria-label="Task options"
             aria-haspopup="true"
@@ -128,6 +140,28 @@ export function TaskCard({ task, onEdit, onDelete, projects = [] }: TaskCardProp
         <p className="mt-1.5 ml-5 text-xs text-[#8b949e] line-clamp-2 leading-relaxed">
           {task.description}
         </p>
+      )}
+
+      {/* Epic pill */}
+      {linkedEpic && (
+        <div className="mt-1.5 ml-5">
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+            style={{
+              backgroundColor: `${linkedEpic.color}22`,
+              color: linkedEpic.color,
+              border: `1px solid ${linkedEpic.color}44`,
+            }}
+            aria-label={`Epic: ${linkedEpic.name}`}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: linkedEpic.color }}
+              aria-hidden="true"
+            />
+            {linkedEpic.name}
+          </span>
+        </div>
       )}
 
       {/* Footer: badge + project badge + tags + date */}

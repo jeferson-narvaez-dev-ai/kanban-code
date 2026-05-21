@@ -17,14 +17,93 @@ function buildKanbanCommands(): SkillFile[] {
       content: `---
 description: Crear una nueva tarea en el tablero Kanban
 ---
-Crea una nueva tarea en el backlog del proyecto Kanban actual.
+Crea una nueva tarea en el tablero Kanban actual.
 
-Usa la herramienta create_task del agente para crear la tarea con:
-- Título: $ARGUMENTS
-- Columna destino: backlog
-- Prioridad: medium (default)
+**Arguments**: \`/kanban-new-task [title] [priority:medium] [column:backlog] [epicId:] [role:] [goal:] [value:]\`
 
-Confirma al usuario la tarea creada con su ID y ubicación.
+## Step 1: Resolve workspace
+Read \`.env.kanban\` in the current working directory:
+- Parse \`KANBAN_WORKSPACE\` and \`KANBAN_PROJECT\`
+- \`harness_root = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/\` (expand \`~\` to home dir)
+- \`tasks_dir = {harness_root}/tasks/\`
+- If \`.env.kanban\` is missing, use \`./tasks/\` as fallback
+
+## Step 2: Resolve epic (optional)
+If an epic name or ID is provided:
+- Look in \`{harness_root}/epics/\` for a file matching the slug or name
+- If found, use the filename (without \`.md\`) as \`epicId\`
+- If not found, leave \`epicId\` unset and note in the confirmation
+
+## Step 3: Generate task ID
+List all files in \`tasks/backlog/\`, \`tasks/in-progress/\`, \`tasks/waiting-approval/\`, \`tasks/review/\`, \`tasks/done/\`.
+Find all \`TASK-NNN.md\` filenames. New ID = highest number + 1, zero-padded to 3 digits.
+If no files exist anywhere, start at TASK-001.
+
+## Step 4: Write task file
+Create \`{tasks_dir}/{column}/TASK-{N}.md\`:
+\`\`\`
+---
+title: {title}
+priority: {priority}
+createdAt: {ISO 8601 timestamp}
+epicId: {epicId}       ← omit if not set
+role: {role}           ← omit if not set
+goal: {goal}           ← omit if not set
+value: {value}         ← omit if not set
+---
+\`\`\`
+
+If the column directory doesn't exist, create it first.
+
+## Step 5: Confirm
+Report: "✅ Created TASK-{N}: {title} in {column} (priority: {priority})"
+If epicId was set, include: "(epic: {epicId})"
+If user story was set, include: "As a {role}, I want to {goal}, so that {value}."
+
+## Rules
+- Each task is its own file: \`tasks/{column}/TASK-{N}.md\`
+- NEVER append to a shared column file
+- \`createdAt\` MUST be a valid ISO 8601 string
+- \`priority\` defaults to \`medium\` if not specified
+- \`column\` defaults to \`backlog\` if not specified; valid values: \`backlog\`, \`in-progress\`, \`waiting-approval\`, \`review\`, \`done\`
+- Omit optional frontmatter keys (\`epicId\`, \`role\`, \`goal\`, \`value\`) if not provided
+`,
+    },
+    {
+      dir: '.claude/commands',
+      filename: 'kanban-new-epic.md',
+      content: `---
+description: Crear una nueva épica en el proyecto Kanban
+---
+Crea una nueva épica para agrupar tareas relacionadas.
+
+**Arguments**: \`/kanban-new-epic [name] [color:#a371f7] [description]\`
+
+## Step 1: Resolve workspace
+Read \`.env.kanban\` → \`harness_root = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/\`
+
+## Step 2: Generate epic ID
+Slugify the name: lowercase, replace spaces with \`-\`, remove special chars.
+Check \`{harness_root}/epics/\` — if \`{slug}.md\` exists, append \`-2\`, \`-3\`, etc.
+
+## Step 3: Write epic file
+Create \`{harness_root}/epics/{slug}.md\`:
+\`\`\`
+---
+name: {name}
+description: {description}
+color: {color}
+createdAt: {ISO 8601 timestamp}
+---
+\`\`\`
+
+## Step 4: Confirm
+Report: "✅ Created epic '{name}' (ID: {slug})"
+
+## Rules
+- If \`epics/\` directory doesn't exist, create it first
+- \`color\` defaults to \`#a371f7\` if not specified
+- Omit \`description\` from frontmatter if not provided
 `,
     },
     {
@@ -35,10 +114,31 @@ description: Mover una tarea entre columnas del tablero
 ---
 Mueve la tarea especificada a otra columna del tablero Kanban.
 
-Formato: /kanban-move TASK-ID columna-destino
-Columnas válidas: backlog, in-progress, review, done
+**Arguments**: \`/kanban-move TASK-ID target-column\`
+Valid columns: \`backlog\`, \`in-progress\`, \`waiting-approval\`, \`review\`, \`done\`
 
-Usa la herramienta move_task del agente. Confirma el movimiento al usuario.
+## Step 1: Resolve workspace
+Read \`.env.kanban\` → \`tasks_dir = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/tasks/\`
+
+## Step 2: Find the task file
+Look for \`{tasks_dir}/{col}/TASK-ID.md\` in each of the 5 column directories.
+Record the source column when found.
+
+## Step 3: Move the file
+- Read the task file content
+- Add/replace \`updatedAt: {ISO timestamp}\` in the frontmatter
+- Write to \`{tasks_dir}/{target-column}/TASK-ID.md\`
+- Delete \`{tasks_dir}/{source-column}/TASK-ID.md\`
+
+## Step 4: Confirm
+Report: "✅ Moved TASK-ID from {source} → {target}"
+
+## Rules
+- If TASK-ID file is not found in any column, report: "❌ Task TASK-ID not found"
+- If the target is the same as the source, skip: "ℹ️ Task already in {column}"
+- If the target column directory doesn't exist, create it first
+- Moving = write new + delete old (not a filesystem rename, to ensure correctness)
+- Moving a task to \`in-progress\` triggers the agent automatically. If the task has a previous \`agentSessionId\`, the prior session context is reused.
 `,
     },
     {
@@ -400,6 +500,17 @@ When asked to explore, analyze, document, propose, or implement any change:
 ## Available Commands
 /sdd-explore, /sdd-new, /sdd-ff, /sdd-apply, /sdd-verify, /sdd-archive, /sdd-status
 
+## Worktree Workflow
+Each task runs in an isolated git worktree at \`.worktrees/{TASK-ID}/\`.
+This prevents parallel agents from conflicting on the same files.
+
+\`\`\`bash
+git worktree add .worktrees/{TASK-ID} -b task/{TASK-ID}
+\`\`\`
+
+The worktree stays until the PR/merge is reviewed. When an agent finishes or is blocked,
+it documents notes in the task file and moves the card to \`waiting-approval\`.
+
 ## Skill Registry
 See \`.claude/skills/_shared/skill-registry.md\`
 \`\`\`
@@ -442,6 +553,7 @@ You are the EXPLORATION phase of SDD. Investigate the codebase and return a stru
 
 ### Step 1: Understand the request
 Parse the topic/change-name. Is this a new feature, bug fix, or refactor?
+Check \`epics/\` — if the change relates to an existing epic, note the \`epicId\` for use in proposals and board tasks.
 
 ### Step 2: Investigate the codebase
 Read relevant files to understand:
@@ -462,6 +574,7 @@ If tied to a named change, write \`research/{change-name}.md\`:
 # Exploration: {topic}
 
 **Date**: {date}
+**Epic**: {epic-id or "none"}
 
 ## Current State
 {how the system works today relevant to this topic}
@@ -507,7 +620,8 @@ You are the PROPOSAL phase of SDD. Create a structured proposal for a change.
 ## What to Do
 
 ### Step 1: Load context
-- Read \`research/{change-name}.md\` if it exists
+- Read \`research/{change-name}.md\` if it exists (note the \`epicId\` field if present)
+- Read \`epics/\` — list available epics and check if this change belongs to one
 - Read \`AGENTS.md\` and \`ARCHITECTURE.md\`
 - Read any relevant existing specs in \`specs/\`
 
@@ -519,8 +633,15 @@ Create \`proposals/active/{change-name}.md\`:
 \`\`\`markdown
 # Proposal: {Change Title}
 
+**Epic**: {epic-id or "none"}
+
 ## Intent
 {What problem are we solving? Why?}
+
+## User Stories
+| Role | Goal | Value |
+|------|------|-------|
+| {role} | I want to {goal} | so that {value} |
 
 ## Scope
 ### In Scope
@@ -544,7 +665,7 @@ Create \`proposals/active/{change-name}.md\`:
 {How to revert if something goes wrong.}
 
 ## Success Criteria
-- [ ] {measurable outcome}
+- [ ] {measurable outcome — tied to user story value}
 \`\`\`
 
 ### Step 4: Return summary with next step.
@@ -716,12 +837,17 @@ You are the TASKS phase of SDD. Create a concrete, ordered implementation task l
 - Read \`specs/changes/{change-name}/\` (REQUIRED)
 - Read \`design/{change-name}.md\` (REQUIRED)
 
-### Step 2: Write task file
+### Step 2: Read epic context
+Check \`proposals/active/{change-name}.md\` for the \`**Epic**:\` field.
+If an \`epicId\` is set, read \`epics/{epicId}.md\` to understand the epic's scope and user stories.
+
+### Step 3: Write task file
 If \`plans/active/{change-name}.md\` exists, READ and UPDATE it. Otherwise create it:
 \`\`\`markdown
 # Tasks: {Change Title}
 
 **Change**: {change-name}
+**Epic**: {epic-id or "none"}
 **Status**: In Progress
 
 ## Phase 1: Foundation / Infrastructure
@@ -741,9 +867,28 @@ If \`plans/active/{change-name}.md\` exists, READ and UPDATE it. Otherwise creat
 - [ ] 5.1 {Docs, dead code}
 \`\`\`
 
-### Step 3: Return phase/task table and next step.
+### Step 4: Offer board card creation
+After writing the plan, ask the user:
+> "Do you want me to create kanban board cards for these tasks? I can run \`/kanban-new-task\` for each item, linking them to epic \`{epicId}\` with role/goal/value from the user stories."
+
+If confirmed, for each plan item create a board card using the format:
+\`\`\`
+tasks/{column}/TASK-NNN.md
+---
+title: {task description}
+priority: {derived from phase: Phase 1-2 = high, Phase 3-4 = medium, Phase 5 = low}
+epicId: {epicId}
+role: {role from proposal user stories}
+goal: {goal from proposal user stories}
+value: {value from proposal user stories}
+createdAt: {ISO timestamp}
+---
+\`\`\`
+
+### Step 5: Return phase/task table and next step.
 
 ## Rules
+- NEVER write to \`tasks/\` — SDD plan tasks go to \`plans/active/{change-name}.md\` ONLY. The \`tasks/\` directory is reserved for kanban board cards (TASK-XXX format). Use \`/kanban-new-task\` if the user wants a card on the board.
 - Each task MUST reference a concrete file path
 - Ordered by dependency — Phase 1 before Phase 2
 - Testing tasks reference specific spec scenarios
@@ -762,6 +907,7 @@ name: sdd-apply
 description: >
   Implement tasks from the change following specs and design strictly.
   Updates plans/active/{change-name}.md with [x] marks as tasks complete.
+  Uses an isolated git worktree per task to prevent parallel agent conflicts.
 ---
 
 ${shared}## Purpose
@@ -769,6 +915,16 @@ ${shared}## Purpose
 You are the APPLY (implementation) phase of SDD. Write actual code following specs and design.
 
 ## What to Do
+
+### Step 0: Create git worktree (REQUIRED before touching any source files)
+Determine the TASK-ID for this work (from the board card or task name).
+From the repository root, create an isolated worktree:
+\`\`\`bash
+git worktree add .worktrees/{TASK-ID} -b task/{TASK-ID}
+\`\`\`
+All development work MUST happen inside \`.worktrees/{TASK-ID}/\`.
+If the worktree already exists (branch already created), just \`cd\` into it.
+**Do NOT delete the worktree after work — it stays until the PR/merge is reviewed.**
 
 ### Step 1: Load context (REQUIRED before any code)
 1. Read \`plans/active/{change-name}.md\` — task list
@@ -784,15 +940,31 @@ For each task:
 1. Read relevant spec scenarios (acceptance criteria)
 2. Read design decisions (constraints)
 3. Read existing patterns (style guide)
-4. Write the code
+4. Write the code (inside \`.worktrees/{TASK-ID}/\`)
 5. Mark task \`[x]\` in \`plans/active/{change-name}.md\`
+6. If a matching board card exists in \`tasks/backlog/\` or \`tasks/in-progress/\`, move it to \`tasks/in-progress/\` (update \`updatedAt\`)
 
-### Step 4: Return summary
+### Step 4: When all tasks are done OR you have questions/blockers
+1. Write an \`## Implementation Notes\` section to the task file at \`tasks/in-progress/{TASK-ID}.md\` summarizing what was done. If you have blockers, also write a \`## Questions\` section.
+   - The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this.
+2. Move the task to \`waiting-approval\` via the Kanban API:
+\`\`\`bash
+curl -X POST http://localhost:3001/api/projects/{projectId}/tasks/{taskId}/move \\
+  -H "Content-Type: application/json" \\
+  -d '{"toColumn":"waiting-approval","source":"agent"}'
+\`\`\`
+   Replace \`{projectId}\` and \`{taskId}\` with the actual values from \`.env.kanban\` or the board card.
+3. If you have questions, list them clearly under \`## Questions\` before moving.
+
+### Step 5: Return summary
 \`\`\`
 ## Implementation Progress: {change-name}
 
 ### Completed Tasks
 - [x] {task description}
+
+### Worktree
+.worktrees/{TASK-ID}/ (branch: task/{TASK-ID})
 
 ### Files Changed
 | File | Action | What Was Done |
@@ -805,14 +977,19 @@ For each task:
 - [ ] {next task}
 
 ### Status
-{N}/{total} complete. {Ready for next phase / Ready for verify / Blocked by X}
+{N}/{total} complete. Task moved to waiting-approval. {Notes or Questions if any.}
 \`\`\`
 
 ## Rules
+- ALWAYS create the git worktree (Step 0) before writing any code
 - ALWAYS read specs before implementing
 - ALWAYS follow design decisions — don't deviate silently
 - ALWAYS match existing code patterns
-- If blocked, STOP and report — don't guess
+- ALWAYS document work and move to waiting-approval when done or blocked
+- If this task was previously developed and sent back, you will receive the previous conversation as context. Review it before continuing.
+- The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this section.
+- If blocked, STOP, document in \`## Questions\`, move to waiting-approval, and report
+- Do NOT delete the worktree automatically — it remains until reviewed
 - Return envelope per sdd-phase-common.md Section D
 `,
     },
@@ -968,8 +1145,10 @@ If not provided, check \`.claude/skills/_shared/skill-registry.md\` for the proj
 | Delta Specs | \`specs/changes/{change-name}/{domain}.md\` |
 | Source Specs | \`specs/{domain}/spec.md\` |
 | Design | \`design/{change-name}.md\` |
-| Tasks | \`plans/active/{change-name}.md\` |
+| SDD Plan | \`plans/active/{change-name}.md\` |
 | Verify Report | \`plans/{change-name}-verify.md\` |
+| Epics | \`epics/{epic-id}.md\` |
+| Board Cards | \`tasks/{column}/TASK-{NNN}.md\` |
 
 ## D. Artifact Persistence
 
@@ -984,6 +1163,45 @@ Every phase MUST return:
 - \`artifacts\`: list of absolute paths written
 - \`next_recommended\`: the next SDD phase
 - \`risks\`: risks discovered, or "None"
+
+## F. Epics & Board Cards
+
+**Epics** group related board tasks. Stored as \`epics/{epic-id}.md\`:
+\`\`\`
+---
+name: Epic Name
+description: Optional description
+color: '#a371f7'
+createdAt: 2024-01-01T00:00:00.000Z
+---
+\`\`\`
+
+**Board task** (frontmatter, one file per task in \`tasks/{column}/TASK-NNN.md\`):
+\`\`\`
+---
+title: Task Title
+priority: high|medium|low
+createdAt: 2024-01-01T00:00:00.000Z
+epicId: epic-id          ← links to epics/{epic-id}.md
+role: persona            ← "As a {role}"
+goal: what they want     ← "I want to {goal}"
+value: business outcome  ← "so that {value}"
+agentSessionId: uuid     ← auto-set by agent system; do not write manually
+totalCostUsd: 0.00       ← cumulative agent cost; managed automatically
+runCount: 0              ← number of agent runs; managed automatically
+lastRunAt: ISO-date      ← last run timestamp; managed automatically
+---
+
+Optional description / acceptance criteria.
+\`\`\`
+
+**Valid columns**: \`backlog\` → \`in-progress\` → \`waiting-approval\` → \`review\` → \`done\`
+- Each agent run on a task accumulates cost in \`totalCostUsd\` frontmatter
+- Session history persists across re-triggers via \`agentSessionId\`
+
+\`waiting-approval\` is set by agents when they finish work or need human input before proceeding.
+
+**SDD plan tasks** (in \`plans/active/{change-name}.md\`) use checklist format (\`- [ ] 1.1 …\`) and are NOT board cards. Use \`/kanban-new-task\` to promote a plan item to a board card.
 `,
     },
     {
@@ -998,6 +1216,7 @@ This project uses a kanban harness layout. All SDD artifacts live in the project
 \`\`\`
 {harness-root}/
 ├── tasks/                     ← Kanban board columns
+├── epics/                     ← Epic definition files
 ├── research/                  ← Exploration notes
 ├── proposals/
 │   ├── active/                ← Active proposals
@@ -1016,6 +1235,13 @@ This project uses a kanban harness layout. All SDD artifacts live in the project
 └── ARCHITECTURE.md
 \`\`\`
 
+Source repository (alongside the harness):
+\`\`\`
+{source-repo}/
+└── .worktrees/                ← Isolated git worktrees (one per active task)
+    └── {TASK-ID}/             ← Branch: task/{TASK-ID}
+\`\`\`
+
 ## Path Mapping
 
 | Standard openspec | Kanban harness |
@@ -1028,6 +1254,95 @@ This project uses a kanban harness layout. All SDD artifacts live in the project
 | \`openspec/changes/{n}/verify-report.md\` | \`plans/{n}-verify.md\` |
 | \`openspec/specs/{domain}/spec.md\` | \`specs/{domain}/spec.md\` |
 | \`openspec/changes/archive/\` | \`proposals/accepted/\` + \`plans/completed/\` |
+
+## Epic Files
+
+Epics are stored in \`epics/{epic-id}.md\` with YAML frontmatter:
+\`\`\`
+---
+name: Epic Name
+description: Optional description
+color: '#a371f7'
+createdAt: 2024-01-01T00:00:00.000Z
+---
+\`\`\`
+
+## Kanban Board Task Format
+
+Each task is a separate file: \`tasks/{column}/TASK-{NNN}.md\`
+
+\`\`\`
+tasks/
+  backlog/            ← one .md file per task
+    TASK-001.md
+    TASK-002.md
+  in-progress/
+    TASK-003.md
+  waiting-approval/   ← agent completed work; awaiting human review
+    TASK-004.md
+  review/
+  done/
+\`\`\`
+
+## Task User Story Fields
+
+Task frontmatter supports user-story fields:
+\`\`\`
+---
+title: Task Title
+priority: medium
+createdAt: 2024-01-01T00:00:00.000Z
+epicId: user-auth
+role: developer
+goal: configure authentication
+value: secure the application
+agentSessionId: uuid    # auto-set by agent system
+totalCostUsd: 0.00      # cumulative agent cost
+runCount: 0             # number of agent runs
+lastRunAt: ISO-date     # last run timestamp
+---
+\`\`\`
+
+> **Note**: \`agentSessionId\`, \`totalCostUsd\`, \`runCount\`, and \`lastRunAt\` are managed automatically — do not set them manually.
+
+### Task Body: Agent Runs Section
+
+After each agent run the server automatically appends an \`## Agent Runs\` section to the task file:
+\`\`\`markdown
+## Agent Runs
+
+### Run 1 — 2026-05-21T20:00:00.000Z
+- Cost: $0.0812
+- Tokens: 2 in / 5 out
+- Duration: 45.2s
+\`\`\`
+
+### Key Rules
+- Filename encodes the ID: \`TASK-{NNN}.md\` — 3-digit zero-padded number
+- Directory encodes the column: \`tasks/{column}/\`
+- Valid columns: \`backlog\`, \`in-progress\`, \`waiting-approval\`, \`review\`, \`done\`
+- \`waiting-approval\` means an agent finished (or is blocked) and a human must review before proceeding
+- \`title\` (required), \`priority\` (required: \`high\`/\`medium\`/\`low\`), \`createdAt\` (required ISO 8601)
+- Moving a task = moving the file to another column directory (update \`updatedAt\` first)
+- SDD plan tasks (\`plans/active/\`) use checklist format (\`- [ ] N.N description\`) and are NOT board cards
+- Use \`/kanban-new-task\` to create a board card, \`/kanban-move TASK-ID column\` to move one
+- Use \`/kanban-new-epic\` to create an epic grouping
+
+## Worktree Workflow
+
+Each task agent runs in an isolated git worktree to prevent parallel agents from conflicting on the same files.
+
+\`\`\`bash
+# Agent creates worktree before starting work
+git worktree add .worktrees/{TASK-ID} -b task/{TASK-ID}
+
+# All code changes happen inside .worktrees/{TASK-ID}/
+
+# Worktree stays until PR/merge is reviewed — do NOT delete automatically
+\`\`\`
+
+The \`.worktrees/\` directory lives in the source repository root.
+Each worktree corresponds to one board task and one git branch (\`task/{TASK-ID}\`).
 `,
     },
   ];

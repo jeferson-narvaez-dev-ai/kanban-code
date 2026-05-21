@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Epic as SharedEpic } from '../../shared/types';
 import type { Epic, Project, Task } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -22,40 +23,53 @@ export const deleteProject = (id: string) =>
 export const initProject = (id: string) =>
   api.post(`/projects/${id}/init`).then(r => r.data);
 
-// --- Epics (sin backend real, retorna vacío para no romper la UI) ---
+// --- Epics ---
 
 export const getEpics = (): Promise<Epic[]> => Promise.resolve([]);
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-export const createEpic = (_data: { id: string; name: string; description?: string; color: string; projectIds?: string[] }): Promise<Epic> =>
-  Promise.reject(new Error('Epics not supported in Markdown mode'));
+export const listEpics = (projectId: string) =>
+  api.get<SharedEpic[]>(`/projects/${projectId}/epics`).then(r => r.data);
 
-export const updateEpic = (_id: string, _data: Partial<Epic>): Promise<Epic> =>
-  Promise.reject(new Error('Epics not supported in Markdown mode'));
+export const createEpic = (projectId: string, data: { id: string; name: string; description?: string; color: string }) =>
+  api.post<SharedEpic>(`/projects/${projectId}/epics`, data).then(r => r.data);
 
-export const deleteEpic = (_id: string) => Promise.resolve();
-/* eslint-enable @typescript-eslint/no-unused-vars */
+export const updateEpic = (projectId: string, epicId: string, data: Partial<Omit<SharedEpic, 'id' | 'createdAt'>>) =>
+  api.patch<SharedEpic>(`/projects/${projectId}/epics/${epicId}`, data).then(r => r.data);
+
+export const deleteEpic = (projectId: string, epicId: string) =>
+  api.delete(`/projects/${projectId}/epics/${epicId}`);
 
 // --- Tasks (nuevo backend Markdown) ---
 
 export const getTasks = (_contextType: 'epic' | 'project', contextId: string): Promise<Task[]> =>
-  api.get<Array<{ id: string; title: string; priority: string; column: string; createdAt: string; description?: string }>>
+  api.get<Array<{ id: string; title: string; priority: string; column: string; createdAt: string; updatedAt?: string; description?: string; epicId?: string; role?: string; goal?: string; value?: string; tags?: string[] }>>
     (`/projects/${contextId}/tasks`)
     .then(r => r.data.map(t => ({
       id: t.id,
       title: t.title,
       priority: t.priority as Task['priority'],
-      status: (t.column === 'in-progress' ? 'in-progress' : t.column === 'done' ? 'done' : 'todo') as Task['status'],
+      status: (['in-progress', 'done', 'waiting-approval'].includes(t.column) ? t.column : 'todo') as Task['status'],
       createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
       description: t.description,
+      epicId: t.epicId,
+      role: t.role,
+      goal: t.goal,
+      value: t.value,
+      tags: t.tags,
     } as Task)));
 
 export const createTask = (data: Omit<Task, 'id' | 'createdAt'> & { contextType: 'epic' | 'project'; contextId: string }) =>
   api.post<Task>(`/projects/${data.contextId}/tasks`, {
     title: data.title,
-    column: data.status === 'in-progress' ? 'in-progress' : data.status === 'done' ? 'done' : 'backlog',
+    column: data.status === 'in-progress' ? 'in-progress' : data.status === 'done' ? 'done' : data.status === 'waiting-approval' ? 'waiting-approval' : 'backlog',
     priority: data.priority,
     description: data.description,
+    epicId: data.epicId,
+    role: data.role,
+    goal: data.goal,
+    value: data.value,
+    tags: data.tags,
   }).then(r => r.data);
 
 export const updateTask = (id: string, data: Partial<Task> & { contextId?: string }) =>

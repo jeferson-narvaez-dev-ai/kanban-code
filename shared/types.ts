@@ -1,3 +1,12 @@
+export interface Epic {
+  id: string;           // slug, e.g. "user-auth"
+  name: string;
+  description?: string;
+  color: string;        // hex
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Task {
   id: string;           // TASK-001, TASK-002, etc.
   title: string;
@@ -7,6 +16,9 @@ export interface Task {
   column: ColumnId;
   createdAt: string;    // ISO date string
   updatedAt?: string;
+  role?: string;        // "As a {role}"
+  goal?: string;        // "I want to {goal}"
+  value?: string;       // "so that {value}"
 }
 
 export type ColumnId = 'backlog' | 'in-progress' | 'review' | 'done';
@@ -50,4 +62,36 @@ export interface WsConnected {
   message: string;
 }
 
-export type WsEvent = WsColumnChanged | WsConnected;
+export interface WsSessionCreated {
+  type: 'session:created';
+  sessionId: string;
+  projectId: string;
+  taskId: string;
+}
+
+export interface WsAgentText {
+  type: 'agent:text';
+  sessionId: string;
+  projectId: string;
+  text: string;
+}
+
+export interface WsAgentTool {
+  type: 'agent:tool';
+  sessionId: string;
+  projectId: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface WsAgentDone {
+  type: 'agent:done';
+  sessionId: string;
+  projectId: string;
+  costUsd?: number;
+  durationMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+export type WsEvent = WsColumnChanged | WsConnected | WsSessionCreated | WsAgentText | WsAgentTool | WsAgentDone;

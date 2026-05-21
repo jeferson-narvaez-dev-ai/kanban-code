@@ -39,7 +39,7 @@ export function TaskModal({
   const [goal, setGoal] = useState(task?.goal ?? '');
   const [value, setValue] = useState(task?.value ?? '');
   const [titleError, setTitleError] = useState(false);
-  const [descriptionTab, setDescriptionTab] = useState<'write' | 'preview'>('write');
+  const [descriptionTab, setDescriptionTab] = useState<'write' | 'preview'>(mode === 'edit' ? 'preview' : 'write');
 
   // Chat state (only used in edit mode)
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant' | 'tool'; content: string; toolName?: string }>>([]);
@@ -204,15 +204,22 @@ Always respond in the same language as the user.`
     >
       <div className={clsx(
         'w-full mx-4 bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl',
-        showChat ? 'max-w-4xl flex' : 'max-w-md'
+        showChat ? 'max-w-6xl flex max-h-[90vh]' : 'max-w-md max-h-[90vh]'
       )}>
         {/* Form column */}
-        <div className={clsx(showChat ? 'flex-1 min-w-0' : '')}>
+        <div className={clsx('flex flex-col min-h-0', showChat ? 'flex-1 min-w-0' : '')}>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d]">
-            <h2 className="text-[#e6edf3] font-semibold text-base">
-              {mode === 'create' ? 'New Task' : 'Edit Task'}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[#e6edf3] font-semibold text-base">
+                {mode === 'create' ? 'New Task' : 'Edit Task'}
+              </h2>
+              {mode === 'edit' && task?.id && (
+                <span className="text-xs font-mono text-[#8b949e] bg-[#21262d] border border-[#30363d] rounded px-1.5 py-0.5">
+                  {task.id}
+                </span>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="text-[#8b949e] hover:text-[#e6edf3] transition-colors rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
@@ -223,7 +230,7 @@ Always respond in the same language as the user.`
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Title */}
             <div>
               <label
@@ -287,9 +294,28 @@ Always respond in the same language as the user.`
                   className="w-full bg-[#0d1117] text-[#e6edf3] text-sm border border-[#30363d] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#58a6ff] focus:border-[#58a6ff] placeholder-[#484f58] resize-y font-mono"
                 />
               ) : (
-                <div className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] prose prose-invert prose-sm max-w-none">
+                <div className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3]">
+                  {/* User story callout */}
+                  {(role || goal || value) && (
+                    <div className="bg-[#0d2d6e]/30 border border-[#58a6ff]/30 rounded-md px-3 py-2 mb-3 text-sm leading-relaxed">
+                      {role && <>As a <strong className="text-[#a5d6ff]">{role}</strong>, </>}
+                      {goal && <>I want to <strong className="text-[#a5d6ff]">{goal}</strong>, </>}
+                      {value && <>so that <strong className="text-[#a5d6ff]">{value}</strong>.</>}
+                    </div>
+                  )}
                   {description?.trim() ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
+                    <div className="prose prose-invert prose-sm max-w-none
+                      prose-headings:text-[#e6edf3] prose-headings:font-semibold prose-headings:border-b prose-headings:border-[#30363d] prose-headings:pb-1
+                      prose-p:text-[#c9d1d9] prose-p:leading-relaxed
+                      prose-a:text-[#58a6ff] prose-a:no-underline hover:prose-a:underline
+                      prose-strong:text-[#e6edf3]
+                      prose-code:text-[#f0883e] prose-code:bg-[#21262d] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+                      prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-[#30363d] prose-pre:rounded-md prose-pre:text-xs
+                      prose-li:text-[#c9d1d9]
+                      prose-blockquote:border-l-[#30363d] prose-blockquote:text-[#8b949e]
+                      prose-hr:border-[#30363d]">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
+                    </div>
                   ) : (
                     <span className="text-[#484f58] italic text-xs">Nothing to preview</span>
                   )}
@@ -452,7 +478,7 @@ Always respond in the same language as the user.`
 
         {/* Refinement chat panel (edit mode only) */}
         {showChat && (
-          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[#30363d]">
+          <div className="w-[460px] flex-shrink-0 flex flex-col border-l border-[#30363d] overflow-hidden">
             {/* Chat header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]">
               <Bot size={14} className="text-[#58a6ff]" />
@@ -475,7 +501,7 @@ Always respond in the same language as the user.`
                     </div>
                   ) : (
                     <div className={clsx(
-                      'max-w-[90%] px-2.5 py-1.5 rounded-xl text-xs leading-relaxed',
+                      'max-w-[90%] px-2.5 py-1.5 rounded-xl text-xs leading-relaxed break-words overflow-x-hidden',
                       msg.role === 'user'
                         ? 'bg-[#1f6feb] text-white rounded-br-sm'
                         : 'bg-[#21262d] text-[#e6edf3] border border-[#30363d] rounded-bl-sm'
@@ -483,7 +509,7 @@ Always respond in the same language as the user.`
                       {msg.role === 'assistant' ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                           p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-                          code: ({ children }) => <code className="bg-[#161b22] px-1 rounded text-[10px] font-mono">{children}</code>,
+                          code: ({ children }) => <code className="bg-[#161b22] px-1 rounded text-[10px] font-mono break-all">{children}</code>,
                         }}>{msg.content}</ReactMarkdown>
                       ) : msg.content}
                     </div>

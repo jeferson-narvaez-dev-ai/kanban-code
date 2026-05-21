@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, Pencil, FileText } from 'lucide-react';
 import clsx from 'clsx';
+import ReactMarkdown from 'react-markdown';
 import { FileTree } from './FileTree';
 import { getFileContent, saveFileContent } from '../lib/api';
 
@@ -102,9 +103,23 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
       <div className="flex-1 overflow-hidden">
         {mode === 'preview' ? (
           <div className="h-full overflow-y-auto px-6 py-5">
-            <pre className="whitespace-pre-wrap font-mono text-sm text-[#e6edf3] leading-relaxed">
-              {draftContent}
-            </pre>
+            <div className="prose prose-invert prose-sm max-w-none
+              prose-headings:text-[#e6edf3] prose-headings:font-semibold prose-headings:border-b prose-headings:border-[#30363d] prose-headings:pb-1
+              prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base
+              prose-p:text-[#c9d1d9] prose-p:leading-relaxed
+              prose-a:text-[#58a6ff] prose-a:no-underline hover:prose-a:underline
+              prose-strong:text-[#e6edf3]
+              prose-code:text-[#f0883e] prose-code:bg-[#21262d] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+              prose-pre:bg-[#161b22] prose-pre:border prose-pre:border-[#30363d] prose-pre:rounded-md
+              prose-pre:text-[#c9d1d9] prose-pre:text-xs
+              prose-table:text-sm prose-table:border-collapse
+              prose-th:text-[#e6edf3] prose-th:bg-[#161b22] prose-th:border prose-th:border-[#30363d] prose-th:px-3 prose-th:py-1.5
+              prose-td:text-[#c9d1d9] prose-td:border prose-td:border-[#30363d] prose-td:px-3 prose-td:py-1.5
+              prose-li:text-[#c9d1d9]
+              prose-blockquote:border-l-[#30363d] prose-blockquote:text-[#8b949e]
+              prose-hr:border-[#30363d]">
+              <ReactMarkdown>{draftContent}</ReactMarkdown>
+            </div>
           </div>
         ) : (
           <textarea

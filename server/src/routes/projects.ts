@@ -141,19 +141,19 @@ router.post('/:id/harness', async (req: Request, res: Response) => {
       return;
     }
 
-    const commandsDir = path.join(sourcePath, '.claude', 'commands');
-    await fs.mkdir(commandsDir, { recursive: true });
-
     const { getSkillFiles } = await import('../utils/skillTemplates');
     const skills = getSkillFiles();
 
     const results: Array<{ filename: string; status: 'created' | 'updated' }> = [];
     for (const skill of skills) {
-      const filePath = path.join(commandsDir, skill.filename);
+      const targetDir = path.join(sourcePath, skill.dir);
+      await fs.mkdir(targetDir, { recursive: true });
+      const filePath = path.join(targetDir, skill.filename);
       await fs.writeFile(filePath, skill.content, 'utf-8');
-      results.push({ filename: skill.filename, status: 'created' });
+      results.push({ filename: `${skill.dir}/${skill.filename}`, status: 'created' });
     }
 
+    const commandsDir = path.join(sourcePath, '.claude', 'commands');
     res.json({
       success: true,
       commandsDir: commandsDir.replace(os.homedir(), '~'),

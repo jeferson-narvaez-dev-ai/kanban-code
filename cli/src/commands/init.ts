@@ -64,6 +64,7 @@ export async function createWorkspaceFiles(
     'proposals/active',
     'proposals/accepted',
     'specs',
+    'specs/changes',
     'design',
     'plans/active',
     'plans/completed',
@@ -93,20 +94,38 @@ export async function createWorkspaceFiles(
 
 This file defines how AI agents should work with this project.
 
-## Context
-- Tasks are stored in \`tasks/\` as Markdown files
-- Research notes go in \`research/\`
-- Proposals (active) go in \`proposals/active/\`
-- Accepted proposals move to \`proposals/accepted/\`
-- Specs go in \`specs/\`
-- Design decisions go in \`design/\`
-- Plans go in \`plans/active/\` and \`plans/completed/\`
-- Reference material goes in \`references/\`
+## Harness Structure
+- \`tasks/\` — Kanban board columns (backlog.md, in-progress.md, review.md, done.md)
+- \`research/\` — Exploration notes and investigations
+- \`proposals/active/\` — Active change proposals
+- \`proposals/accepted/\` — Accepted/archived proposals
+- \`specs/\` — Source-of-truth behavioral specs
+- \`specs/changes/\` — Delta specs per active change
+- \`design/\` — Technical design documents (ADRs)
+- \`plans/active/\` — Implementation task lists (SDD tasks)
+- \`plans/completed/\` — Completed plans
+- \`references/\` — Reference material
+
+## SDD Workflow (Spec-Driven Development)
+Use these slash commands to manage changes:
+- \`/sdd-new <change-name>\` — Start a new change (explore + propose)
+- \`/sdd-ff <change-name>\` — Fast-forward: spec → design → tasks
+- \`/sdd-apply <change-name>\` — Implement tasks
+- \`/sdd-verify <change-name>\` — Verify implementation
+- \`/sdd-archive <change-name>\` — Archive completed change
+- \`/sdd-status [change-name]\` — Check pipeline status
+- \`/sdd-continue <change-name>\` — Resume next missing step
+
+## Dependency Chain
+\`\`\`
+research/ → proposals/active/ → specs/changes/ + design/ → plans/active/ → apply → verify → archive
+\`\`\`
 
 ## Working Guidelines
 - Always read ARCHITECTURE.md before making structural changes
 - Create tasks in the appropriate column in \`tasks/\`
 - Document decisions in the appropriate folder
+- Use SDD for any substantial change (new feature, refactor, bug fix with broad impact)
 `;
     await fs.writeFile(agentsMdPath, agentsMdContent, 'utf8');
     created++;
@@ -286,7 +305,7 @@ ${chalk.green.bold('Proyecto')} ${chalk.white.bold(`"${trimmedName}"`)} ${chalk.
 
 ${chalk.blue('Workspace:')}    ${chalk.white(kanbanDir + '/')}
 ${chalk.blue('Variables:')}    ${chalk.white('.env.kanban')} ${chalk.gray('(configura tus credenciales AWS)')}
-${chalk.blue('Skills:')}       ${chalk.white('.claude/commands/')} ${chalk.gray('(10 comandos instalados)')}
+${chalk.blue('Skills:')}       ${chalk.white('.claude/commands/ + .claude/skills/')} ${chalk.gray('(kanban + SDD instalados)')}
 
 ${chalk.bold('Estructura creada:')}
   ${chalk.cyan('tasks/')}         backlog, in-progress, review, done

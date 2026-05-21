@@ -30,7 +30,8 @@ function TreeNode({ entry, projectId, selectedPath, onSelectFile, depth }: TreeN
   const { data: children, isLoading } = useQuery({
     queryKey: ['files', projectId, entry.path],
     queryFn: () => listFiles(projectId, entry.path),
-    enabled: entry.type === 'directory' && open,
+    enabled: entry.type === 'directory',
+    staleTime: 30_000,
     select: (data) => {
       const sorted = [...data.entries].filter(e => e.name !== 'meta.json');
       sorted.sort((a, b) => {
@@ -58,7 +59,12 @@ function TreeNode({ entry, projectId, selectedPath, onSelectFile, depth }: TreeN
           <span className="flex-shrink-0 text-[#58a6ff]">
             {open ? <FolderOpen size={13} /> : <Folder size={13} />}
           </span>
-          <span className="truncate">{entry.name}</span>
+          <span className="truncate flex-1">{entry.name}</span>
+          {children !== undefined && (
+            <span className="flex-shrink-0 text-[10px] text-[#484f58] ml-1">
+              {children.length}
+            </span>
+          )}
         </button>
         {open && (
           <div>

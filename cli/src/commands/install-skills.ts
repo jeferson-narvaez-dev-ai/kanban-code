@@ -155,6 +155,8 @@ Report: "✅ Moved TASK-ID from {source} → {target}"
 - Moving = write new + delete old (not a filesystem rename, to ensure correctness)
 - Moving a task to \`in-progress\` triggers the agent automatically. If the task has a previous \`agentSessionId\`, the prior session context is reused.
 - Moving a task to \`done\` triggers an automatic merge of \`task/{TASK-ID}\` into the default branch (\`main\`/\`master\`) and removes the worktree.
+- **AGENTS: NEVER move a task directly from \`in-progress\` to \`done\`. The required flow is: \`in-progress\` → \`waiting-approval\` → \`done\`. Only a human reviewer moves a task to \`done\`.**
+- **AGENTS: ALWAYS create a git worktree before making any code changes.** Run: \`git worktree add .worktrees/{TASK-ID} -b task/{TASK-ID}\` from the repo root. All work goes inside \`.worktrees/{TASK-ID}/\`.
 `,
     },
     {
@@ -1014,11 +1016,13 @@ curl -X POST http://localhost:3001/api/projects/{projectId}/tasks/{taskId}/move 
 
 ## Rules
 - ALWAYS create the git worktree (Step 0) before writing any code
+- **NEVER skip the worktree step.** If \`git worktree add\` fails because the branch already exists, run \`git worktree add .worktrees/{TASK-ID} task/{TASK-ID}\` (without \`-b\`) to reuse it.
 - ALWAYS read specs before implementing
 - ALWAYS follow design decisions — don't deviate silently
 - ALWAYS match existing code patterns
 - ALWAYS document work and move to waiting-approval when done or blocked
 - **NEVER move a task to \`waiting-approval\` without first writing \`## Implementation Notes\` to the task file.** This is required — the reviewer depends on this to understand what was done.
+- **NEVER move a task to \`done\` yourself.** The flow is strictly: \`in-progress\` → \`waiting-approval\` → \`done\`. Only a human reviewer moves a task to \`done\`.
 - Write the task file using the Bash tool with a heredoc or tee command — do not use the curl API for this.
 - If this task was previously developed and sent back, you will receive the previous conversation as context. Review it before continuing.
 - The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this section.

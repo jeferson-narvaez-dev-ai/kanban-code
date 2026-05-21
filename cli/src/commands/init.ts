@@ -190,6 +190,64 @@ export async function ensureGitignoreEntry(cwd: string, entry: string): Promise<
   }
 }
 
+export async function writeClaudeMd(cwd: string, projectId: string, workspaceBase: string): Promise<void> {
+  const claudeMdPath = path.resolve(cwd, 'CLAUDE.md');
+  const harnessRoot = path.join(workspaceBase, projectId).replace(os.homedir(), '~');
+
+  const content = `# CLAUDE.md — ${projectId}
+
+This file is auto-loaded by Claude Code at the start of every session.
+
+## SDD Workflow
+
+This project uses **Spec-Driven Development**. Skills are installed in \`.claude/skills/\`.
+
+When asked to explore, analyze, document, propose, or implement any change:
+1. Read \`.env.kanban\` to resolve the harness root (\`KANBAN_WORKSPACE/KANBAN_PROJECT\`)
+2. Load the appropriate skill from \`.claude/skills/sdd-{phase}/SKILL.md\`
+3. All artifacts (research, proposals, specs, design, plans) go to \`${harnessRoot}/\` — never to the source repo
+
+## Harness Artifact Locations
+
+| Artifact | Path |
+|----------|------|
+| Research / Exploration | \`${harnessRoot}/research/{topic}.md\` |
+| Proposals | \`${harnessRoot}/proposals/active/{change}.md\` |
+| Delta Specs | \`${harnessRoot}/specs/changes/{change}/{domain}.md\` |
+| Source-of-truth Specs | \`${harnessRoot}/specs/{domain}/spec.md\` |
+| Technical Design | \`${harnessRoot}/design/{change}.md\` |
+| Task Plans | \`${harnessRoot}/plans/active/{change}.md\` |
+| Verify Reports | \`${harnessRoot}/plans/{change}-verify.md\` |
+
+## Available SDD Commands
+
+| Command | What it does |
+|---------|-------------|
+| \`/sdd-init\` | Detect stack, update this file with project context |
+| \`/sdd-explore <topic>\` | Investigate and document a topic |
+| \`/sdd-new <change>\` | Start a change: explore + propose |
+| \`/sdd-ff <change>\` | Fast-forward: spec → design → tasks |
+| \`/sdd-apply <change>\` | Implement tasks |
+| \`/sdd-verify <change>\` | Validate implementation vs specs |
+| \`/sdd-archive <change>\` | Merge specs and archive |
+| \`/sdd-status\` | Show pipeline status for all active changes |
+
+## Skill Registry
+
+See \`.claude/skills/_shared/skill-registry.md\` for available skills.
+Run \`/sdd-init\` to regenerate with detected stack information.
+
+## Project
+
+- **ID**: ${projectId}
+- **Harness**: ${harnessRoot}/
+- **Skills**: .claude/skills/
+- **Commands**: .claude/commands/
+`;
+
+  await fs.writeFile(claudeMdPath, content, 'utf8');
+}
+
 export async function generateEnvFile(
   cwd: string,
   projectName: string,
@@ -283,19 +341,27 @@ export async function runInit(): Promise<void> {
   }
 
   // TASK-00C: Install skills
-  const skillsSpinner = ora('Instalando skills en .claude/commands/...').start();
+  const skillsSpinner = ora('Instalando skills en .claude/...').start();
 
   try {
     const count = await installSkills(cwd);
     skillsSpinner.succeed(
-      chalk.green(`Skills instalados: ${count} comandos en .claude/commands/.`)
+      chalk.green(`Skills instalados: ${count} archivos en .claude/.`)
     );
   } catch (error) {
     skillsSpinner.fail(chalk.red('Error al instalar skills.'));
     throw error;
   }
 
-  // TASK-00D: Print summary
+  // TASK-00D: Write CLAUDE.md
+  try {
+    await writeClaudeMd(cwd, trimmedName, workspaceBase);
+    console.log(chalk.green('  CLAUDE.md escrito — Claude Code cargará el contexto SDD automáticamente.'));
+  } catch {
+    // non-fatal
+  }
+
+  // TASK-00E: Print summary
   const kanbanDir = path
     .resolve(workspaceBase, trimmedName)
     .replace(os.homedir(), '~');

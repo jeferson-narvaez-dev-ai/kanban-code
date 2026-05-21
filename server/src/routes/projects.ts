@@ -8,6 +8,60 @@ import { COLUMNS } from '../types';
 
 const router = Router();
 
+function buildClaudeMd(projectName: string, projectId: string, harnessRoot: string): string {
+  return `# CLAUDE.md — ${projectName}
+
+This file is auto-loaded by Claude Code at the start of every session.
+
+## SDD Workflow
+
+This project uses **Spec-Driven Development**. Skills are installed in \`.claude/skills/\`.
+
+When asked to explore, analyze, document, propose, or implement any change:
+1. Read \`.env.kanban\` to resolve the harness root (\`KANBAN_WORKSPACE/KANBAN_PROJECT\`)
+2. Load the appropriate skill from \`.claude/skills/sdd-{phase}/SKILL.md\`
+3. All artifacts (research, proposals, specs, design, plans) go to \`${harnessRoot}/\` — never to the source repo
+
+## Harness Artifact Locations
+
+| Artifact | Path |
+|----------|------|
+| Research / Exploration | \`${harnessRoot}/research/{topic}.md\` |
+| Proposals | \`${harnessRoot}/proposals/active/{change}.md\` |
+| Delta Specs | \`${harnessRoot}/specs/changes/{change}/{domain}.md\` |
+| Source-of-truth Specs | \`${harnessRoot}/specs/{domain}/spec.md\` |
+| Technical Design | \`${harnessRoot}/design/{change}.md\` |
+| Task Plans | \`${harnessRoot}/plans/active/{change}.md\` |
+| Verify Reports | \`${harnessRoot}/plans/{change}-verify.md\` |
+
+## Available SDD Commands
+
+| Command | What it does |
+|---------|-------------|
+| \`/sdd-init\` | Detect stack, create skill registry, update this file |
+| \`/sdd-explore <topic>\` | Investigate and document a topic |
+| \`/sdd-new <change>\` | Start a change: explore + propose |
+| \`/sdd-ff <change>\` | Fast-forward: spec → design → tasks |
+| \`/sdd-apply <change>\` | Implement tasks |
+| \`/sdd-verify <change>\` | Validate implementation vs specs |
+| \`/sdd-archive <change>\` | Merge specs and archive |
+| \`/sdd-status\` | Show pipeline status for all active changes |
+
+## Skill Registry
+
+See \`.claude/skills/_shared/skill-registry.md\` for available skills and project context.
+Run \`/sdd-init\` to regenerate with detected stack information.
+
+## Project
+
+- **ID**: ${projectId}
+- **Harness**: ${harnessRoot}/
+- **Skills**: .claude/skills/
+- **Commands**: .claude/commands/
+`;
+}
+
+
 // GET /api/projects
 router.get('/', async (_req: Request, res: Response) => {
   try {
@@ -152,6 +206,14 @@ router.post('/:id/harness', async (req: Request, res: Response) => {
       await fs.writeFile(filePath, skill.content, 'utf-8');
       results.push({ filename: `${skill.dir}/${skill.filename}`, status: 'created' });
     }
+
+    // Write CLAUDE.md so Claude Code auto-loads SDD context on every session
+    const claudeMdPath = path.join(sourcePath, 'CLAUDE.md');
+    const projectName = meta.name ?? id;
+    const harnessRoot = `~/.kanban/${id}`;
+    const claudeMdContent = buildClaudeMd(projectName, id, harnessRoot);
+    await fs.writeFile(claudeMdPath, claudeMdContent, 'utf-8');
+    results.push({ filename: 'CLAUDE.md', status: 'created' });
 
     const commandsDir = path.join(sourcePath, '.claude', 'commands');
     res.json({

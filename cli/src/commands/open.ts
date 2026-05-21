@@ -3,7 +3,7 @@ import os from 'os';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import ora from 'ora';
-import { createWorkspaceFiles, ensureGitignoreEntry, generateEnvFile } from './init.js';
+import { createWorkspaceFiles, ensureGitignoreEntry, generateEnvFile, writeClaudeMd } from './init.js';
 import { installSkills } from './install-skills.js';
 
 function resolveWorkspace(): string {
@@ -49,13 +49,21 @@ export async function runOpen(): Promise<void> {
   const skillsSpinner = ora('Installing Claude skills...').start();
   try {
     const count = await installSkills(cwd);
-    skillsSpinner.succeed(chalk.green(`${count} skills installed in .claude/commands/`));
+    skillsSpinner.succeed(chalk.green(`${count} skills installed in .claude/`));
   } catch (err) {
     skillsSpinner.fail(chalk.red('Failed to install skills.'));
     throw err;
   }
 
-  // 4. Generate .env.kanban if not present
+  // 4. Write CLAUDE.md so Claude Code auto-loads SDD context
+  try {
+    await writeClaudeMd(cwd, slug, workspaceBase);
+    console.log(chalk.green(`  CLAUDE.md written.`));
+  } catch {
+    // non-fatal
+  }
+
+  // 5. Generate .env.kanban if not present
   try {
     await generateEnvFile(cwd, slug, workspaceBase);
     await ensureGitignoreEntry(cwd, '.env.kanban');

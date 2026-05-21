@@ -410,8 +410,43 @@ Create \`.claude/skills/_shared/skill-registry.md\`:
 | sdd-archive | .claude/skills/sdd-archive/SKILL.md | /sdd-archive |
 \`\`\`
 
-### Step 4: Update AGENTS.md
-Append an SDD section documenting the workflow and dependency chain (under 30 lines).
+### Step 4: Write CLAUDE.md
+Create or update \`CLAUDE.md\` in the source project root (current working directory, NOT harness_root):
+
+\`\`\`markdown
+# CLAUDE.md — {project-name}
+
+This file is auto-loaded by Claude Code at the start of every session.
+
+## Project Context
+- **Stack**: {detected stack}
+- **Tests**: {test command}
+- **Build**: {build command}
+- **Lint**: {lint command if any}
+
+## SDD Workflow
+This project uses Spec-Driven Development. Skills are in \`.claude/skills/\`.
+
+When asked to explore, analyze, document, propose, or implement any change:
+1. Read \`.env.kanban\` to resolve harness root (KANBAN_WORKSPACE/KANBAN_PROJECT)
+2. Load the appropriate skill from \`.claude/skills/sdd-{phase}/SKILL.md\`
+3. All artifacts go to {harness_root}/ — never to the source repo
+
+## Harness Artifact Locations
+| Artifact | Path |
+|----------|------|
+| Research | {harness_root}/research/{topic}.md |
+| Proposals | {harness_root}/proposals/active/{change}.md |
+| Specs | {harness_root}/specs/changes/{change}/{domain}.md |
+| Design | {harness_root}/design/{change}.md |
+| Tasks | {harness_root}/plans/active/{change}.md |
+
+## Available Commands
+/sdd-explore, /sdd-new, /sdd-ff, /sdd-apply, /sdd-verify, /sdd-archive, /sdd-status
+
+## Skill Registry
+See \`.claude/skills/_shared/skill-registry.md\`
+\`\`\`
 
 ### Step 5: Return summary
 \`\`\`
@@ -419,7 +454,8 @@ Append an SDD section documenting the workflow and dependency chain (under 30 li
 
 **Project**: {name}
 **Stack**: {stack}
-**Persistence**: kanban-harness
+**Persistence**: kanban-harness (~/.kanban/{project}/)
+**CLAUDE.md**: written ✅
 
 ### Next Steps
 /sdd-new <change-name> or /sdd-explore <topic>
@@ -428,7 +464,8 @@ Append an SDD section documenting the workflow and dependency chain (under 30 li
 ## Rules
 - NEVER create placeholder spec files
 - ALWAYS detect the real tech stack
-- Keep AGENTS.md SDD section under 30 lines
+- Write CLAUDE.md in the SOURCE directory (cwd), not the harness
+- If CLAUDE.md already exists, READ and UPDATE the SDD section only
 `,
     },
     {

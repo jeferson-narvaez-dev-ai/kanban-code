@@ -18,6 +18,7 @@ interface ColumnProps {
   groupByEpic?: boolean;
   boardMode?: 'epic' | 'project';
   availableProjects?: Project[];
+  projectId?: string;
   onAddTask: (status: Status, data: Omit<Task, 'id' | 'createdAt'>) => void;
   onEditTask: (id: string, updates: Partial<Task>) => void;
   onDeleteTask: (id: string) => void;
@@ -104,6 +105,7 @@ export function Column({
   groupByEpic = false,
   boardMode = 'project',
   availableProjects = [],
+  projectId,
   onAddTask,
   onEditTask,
   onDeleteTask,
@@ -203,6 +205,7 @@ export function Column({
           defaultStatus={column.id}
           availableProjects={availableProjects}
           epics={epics}
+          projectId={projectId}
           onClose={() => setShowCreate(false)}
           onSubmit={(data) => onAddTask(column.id, data)}
         />
@@ -226,6 +229,7 @@ export function Column({
           task={editingTask}
           availableProjects={availableProjects}
           epics={epics}
+          projectId={projectId}
           onClose={() => setEditingTask(null)}
           onSubmit={(data) => {
             onEditTask(editingTask.id, data);

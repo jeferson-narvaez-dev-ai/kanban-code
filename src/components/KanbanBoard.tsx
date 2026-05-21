@@ -248,6 +248,7 @@ export function KanbanBoard({
                   groupByEpic={groupByEpic}
                   boardMode={mode}
                   availableProjects={projects}
+                  projectId={projectId}
                   onAddTask={addTask}
                   onEditTask={editTask}
                   onDeleteTask={deleteTask}

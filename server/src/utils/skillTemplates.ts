@@ -335,6 +335,16 @@ function buildSddPhaseSkills(): SkillFile[] {
   const shared = `SKILL: Load \`.claude/skills/_shared/sdd-phase-common.md\` before starting.
 SKILL: Load \`.claude/skills/_shared/openspec-convention.md\` before starting.
 
+## Workspace Resolution (do this FIRST, before any file operations)
+
+1. Look for \`.env.kanban\` in the current working directory
+2. If found, parse it and extract \`KANBAN_WORKSPACE\` and \`KANBAN_PROJECT\`
+3. Set \`harness_root = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/\`
+   - Example: if \`KANBAN_WORKSPACE=~/.kanban\` and \`KANBAN_PROJECT=my-app\`, then \`harness_root = ~/.kanban/my-app/\`
+   - Expand \`~\` to the actual home directory
+4. If \`.env.kanban\` does NOT exist, use the current working directory as \`harness_root\` (fallback)
+5. ALL artifact paths in this skill are relative to \`harness_root\`, NOT the current directory
+
 `;
 
   return [
@@ -945,7 +955,15 @@ Executor boundary: every SDD phase agent is an EXECUTOR, not an orchestrator. Do
 Check for \`SKILL: Load\` instructions in your launch prompt and load those files first.
 If not provided, check \`.claude/skills/_shared/skill-registry.md\` for the project context.
 
-## B. Artifact Paths (Kanban Harness)
+## B. Workspace Resolution (ALWAYS do this before any file operation)
+
+1. Look for \`.env.kanban\` in the current working directory
+2. If found, parse \`KANBAN_WORKSPACE\` and \`KANBAN_PROJECT\`
+3. \`harness_root = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/\` (expand \`~\` to home dir)
+4. If \`.env.kanban\` not found, \`harness_root = ./\` (current directory fallback)
+5. ALL artifact paths below are relative to \`harness_root\`
+
+## C. Artifact Paths (relative to harness_root)
 
 | Artifact | Path |
 |----------|------|
@@ -957,17 +975,17 @@ If not provided, check \`.claude/skills/_shared/skill-registry.md\` for the proj
 | Tasks | \`plans/active/{change-name}.md\` |
 | Verify Report | \`plans/{change-name}-verify.md\` |
 
-## C. Artifact Persistence
+## D. Artifact Persistence
 
-Every phase MUST write its artifact to the path above.
+Every phase MUST write its artifact to \`harness_root/{path}\` above.
 If a file already exists, READ first and UPDATE — never overwrite blindly.
 
-## D. Return Envelope
+## E. Return Envelope
 
 Every phase MUST return:
 - \`status\`: \`success\`, \`partial\`, or \`blocked\`
 - \`executive_summary\`: 1-3 sentence summary
-- \`artifacts\`: list of files written
+- \`artifacts\`: list of absolute paths written
 - \`next_recommended\`: the next SDD phase
 - \`risks\`: risks discovered, or "None"
 `,

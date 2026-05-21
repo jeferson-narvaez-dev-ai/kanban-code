@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, Pencil, FileText } from 'lucide-react';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { FileTree } from './FileTree';
 import { getFileContent, saveFileContent } from '../lib/api';
 
@@ -118,7 +119,7 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
               prose-li:text-[#c9d1d9]
               prose-blockquote:border-l-[#30363d] prose-blockquote:text-[#8b949e]
               prose-hr:border-[#30363d]">
-              <ReactMarkdown>{draftContent}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{draftContent}</ReactMarkdown>
             </div>
           </div>
         ) : (

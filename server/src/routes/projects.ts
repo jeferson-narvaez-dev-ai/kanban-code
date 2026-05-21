@@ -215,6 +215,27 @@ router.post('/:id/harness', async (req: Request, res: Response) => {
     await fs.writeFile(claudeMdPath, claudeMdContent, 'utf-8');
     results.push({ filename: 'CLAUDE.md', status: 'created' });
 
+    // Write .env.kanban if not present so SDD skills can resolve harness_root
+    const envKanbanPath = path.join(sourcePath, '.env.kanban');
+    let envExists = false;
+    try { await fs.access(envKanbanPath); envExists = true; } catch { /* not found */ }
+    if (!envExists) {
+      const kanbanWorkspace = path.join(os.homedir(), '.kanban').replace(os.homedir(), '~');
+      const envContent = `KANBAN_WORKSPACE=${kanbanWorkspace}\nKANBAN_PROJECT=${id}\nAWS_REGION=us-east-1\nAWS_ACCESS_KEY_ID=\nAWS_SECRET_ACCESS_KEY=\nBEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0\n`;
+      await fs.writeFile(envKanbanPath, envContent, 'utf-8');
+      results.push({ filename: '.env.kanban', status: 'created' });
+
+      // Add .env.kanban to .gitignore
+      const gitignorePath = path.join(sourcePath, '.gitignore');
+      try {
+        let gitignore = '';
+        try { gitignore = await fs.readFile(gitignorePath, 'utf-8'); } catch { /* no .gitignore yet */ }
+        if (!gitignore.split('\n').some(l => l.trim() === '.env.kanban')) {
+          await fs.writeFile(gitignorePath, gitignore + (gitignore.endsWith('\n') ? '' : '\n') + '.env.kanban\n', 'utf-8');
+        }
+      } catch { /* non-fatal */ }
+    }
+
     const commandsDir = path.join(sourcePath, '.claude', 'commands');
     res.json({
       success: true,

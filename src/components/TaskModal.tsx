@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import clsx from 'clsx';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Priority, Project, Status, Task } from '../types';
 import type { Epic } from '../../shared/types';
 
@@ -34,6 +37,7 @@ export function TaskModal({
   const [goal, setGoal] = useState(task?.goal ?? '');
   const [value, setValue] = useState(task?.value ?? '');
   const [titleError, setTitleError] = useState(false);
+  const [descriptionTab, setDescriptionTab] = useState<'write' | 'preview'>('write');
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -125,22 +129,48 @@ export function TaskModal({
             )}
           </div>
 
-          {/* Description */}
+          {/* Description — write/preview tabs */}
           <div>
-            <label
-              htmlFor="task-description"
-              className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-            >
-              Description
-            </label>
-            <textarea
-              id="task-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description..."
-              rows={3}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors resize-none"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">
+                Description
+              </label>
+              <div className="flex rounded-md overflow-hidden border border-[#30363d] text-[10px]">
+                {(['write', 'preview'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setDescriptionTab(tab)}
+                    className={clsx(
+                      'px-2.5 py-0.5 capitalize transition-colors',
+                      descriptionTab === tab
+                        ? 'bg-[#21262d] text-[#e6edf3]'
+                        : 'text-[#8b949e] hover:text-[#e6edf3]'
+                    )}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {descriptionTab === 'write' ? (
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Supports markdown..."
+                rows={6}
+                className="w-full bg-[#0d1117] text-[#e6edf3] text-sm border border-[#30363d] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#58a6ff] focus:border-[#58a6ff] placeholder-[#484f58] resize-y font-mono"
+              />
+            ) : (
+              <div className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] prose prose-invert prose-sm max-w-none">
+                {description?.trim() ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
+                ) : (
+                  <span className="text-[#484f58] italic text-xs">Nothing to preview</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Priority */}

@@ -121,13 +121,28 @@ Read \`.env.kanban\` → \`tasks_dir = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/tasks
 Look for \`{tasks_dir}/{col}/TASK-ID.md\` in each of the 5 column directories.
 Record the source column when found.
 
-## Step 3: Move the file
+## Step 3: Pre-condition check before moving to waiting-approval
+If the target column is \`waiting-approval\` and the source column is \`in-progress\`:
+- Read the task file at \`{tasks_dir}/in-progress/TASK-ID.md\`
+- Check whether the file body contains an \`## Implementation Notes\` section
+- If it does NOT contain \`## Implementation Notes\`, write it now using the Bash tool with a heredoc or tee command before proceeding:
+  \`\`\`bash
+  tee -a {tasks_dir}/in-progress/TASK-ID.md <<'EOF'
+
+## Implementation Notes
+
+(add summary of what was implemented, files changed, and any important decisions)
+EOF
+  \`\`\`
+- **NEVER move a task from \`in-progress\` to \`waiting-approval\` without first confirming that \`## Implementation Notes\` exists in the task file.** The reviewer depends on this to understand what was done.
+
+## Step 4: Move the file
 - Read the task file content
 - Add/replace \`updatedAt: {ISO timestamp}\` in the frontmatter
 - Write to \`{tasks_dir}/{target-column}/TASK-ID.md\`
 - Delete \`{tasks_dir}/{source-column}/TASK-ID.md\`
 
-## Step 4: Confirm
+## Step 5: Confirm
 Report: "✅ Moved TASK-ID from {source} → {target}"
 
 ## Rules
@@ -944,16 +959,32 @@ For each task:
 6. If a matching board card exists in \`tasks/backlog/\` or \`tasks/in-progress/\`, move it to \`tasks/in-progress/\` (update \`updatedAt\`)
 
 ### Step 4: When all tasks are done OR you have questions/blockers
-1. Write an \`## Implementation Notes\` section to the task file at \`tasks/in-progress/{TASK-ID}.md\` summarizing what was done. If you have blockers, also write a \`## Questions\` section.
+
+**NEVER move a task to \`waiting-approval\` without first writing \`## Implementation Notes\` to the task file. This is required — the reviewer depends on this to understand what was done.**
+
+1. Write the following sections to the task file at \`tasks/in-progress/{TASK-ID}.md\` using the Bash tool with a heredoc or tee command — do not use the curl API for this:
+\`\`\`bash
+tee -a ~/.kanban/{projectId}/tasks/in-progress/{TASK-ID}.md <<'EOF'
+
+## Implementation Notes
+
+Brief summary of what was implemented, files changed, and any important decisions made.
+
+## Questions for Review
+- Question 1?
+- Question 2?
+(omit this section entirely if no questions)
+EOF
+\`\`\`
+   - Replace the placeholder text with the actual summary and questions (or omit \`## Questions for Review\` if there are none).
    - The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this.
-2. Move the task to \`waiting-approval\` via the Kanban API:
+2. Move the task to \`waiting-approval\` via the Kanban API (only AFTER the file has been written):
 \`\`\`bash
 curl -X POST http://localhost:3001/api/projects/{projectId}/tasks/{taskId}/move \\
   -H "Content-Type: application/json" \\
   -d '{"toColumn":"waiting-approval","source":"agent"}'
 \`\`\`
    Replace \`{projectId}\` and \`{taskId}\` with the actual values from \`.env.kanban\` or the board card.
-3. If you have questions, list them clearly under \`## Questions\` before moving.
 
 ### Step 5: Return summary
 \`\`\`
@@ -985,9 +1016,11 @@ curl -X POST http://localhost:3001/api/projects/{projectId}/tasks/{taskId}/move 
 - ALWAYS follow design decisions — don't deviate silently
 - ALWAYS match existing code patterns
 - ALWAYS document work and move to waiting-approval when done or blocked
+- **NEVER move a task to \`waiting-approval\` without first writing \`## Implementation Notes\` to the task file.** This is required — the reviewer depends on this to understand what was done.
+- Write the task file using the Bash tool with a heredoc or tee command — do not use the curl API for this.
 - If this task was previously developed and sent back, you will receive the previous conversation as context. Review it before continuing.
 - The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this section.
-- If blocked, STOP, document in \`## Questions\`, move to waiting-approval, and report
+- If blocked, STOP, document in \`## Questions for Review\`, move to waiting-approval, and report
 - Do NOT delete the worktree automatically — it remains until reviewed
 - When the task is moved to **done** by the reviewer, the worktree branch is automatically merged into the default branch and the worktree is removed. Do NOT manually merge or delete the worktree.
 - Return envelope per sdd-phase-common.md Section D

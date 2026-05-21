@@ -136,6 +136,7 @@ Report: "✅ Moved TASK-ID from {source} → {target}"
 - If the target column directory doesn't exist, create it first
 - Moving = write new + delete old (not a filesystem rename, to ensure correctness)
 - Moving a task to \`in-progress\` triggers the agent automatically. If the task has a previous \`agentSessionId\`, the prior session context is reused.
+- Moving a task to \`done\` triggers an automatic merge of \`task/{TASK-ID}\` into the default branch (\`main\`/\`master\`) and removes the worktree.
 `,
     },
     {
@@ -988,6 +989,7 @@ curl -X POST http://localhost:3001/api/projects/{projectId}/tasks/{taskId}/move 
 - The server automatically appends \`## Agent Runs\` with cost and token usage — you don't need to write this section.
 - If blocked, STOP, document in \`## Questions\`, move to waiting-approval, and report
 - Do NOT delete the worktree automatically — it remains until reviewed
+- When the task is moved to **done** by the reviewer, the worktree branch is automatically merged into the default branch and the worktree is removed. Do NOT manually merge or delete the worktree.
 - Return envelope per sdd-phase-common.md Section D
 `,
     },
@@ -1236,9 +1238,12 @@ This project uses a kanban harness layout. All SDD artifacts live in the project
 Source repository (alongside the harness):
 \`\`\`
 {source-repo}/
-└── .worktrees/                ← Isolated git worktrees (one per active task)
-    └── {TASK-ID}/             ← Branch: task/{TASK-ID}
+├── .worktrees/          ← git worktrees per task (gitignored)
+│   └── {TASK-ID}/       ← Branch: task/{TASK-ID}
+└── .gitignore           ← .worktrees/ is added automatically during harness setup
 \`\`\`
+
+> **Note**: \`.worktrees/\` is added to \`.gitignore\` automatically during harness setup.
 
 ## Path Mapping
 
@@ -1341,6 +1346,13 @@ git worktree add .worktrees/{TASK-ID} -b task/{TASK-ID}
 
 The \`.worktrees/\` directory lives in the source repository root.
 Each worktree corresponds to one board task and one git branch (\`task/{TASK-ID}\`).
+
+### Automatic merge on done
+
+When the task is moved to **done** by the reviewer, the worktree branch is automatically merged into the default branch and the worktree is removed.
+
+- Do NOT manually merge or delete the worktree.
+- The server handles \`git merge --no-ff task/{TASK-ID}\`, \`git worktree remove\`, and \`git branch -d\` automatically.
 `,
     },
   ];

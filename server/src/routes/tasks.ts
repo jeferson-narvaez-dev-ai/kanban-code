@@ -8,6 +8,7 @@ import {
 } from '../store/markdownStore';
 import { COLUMNS, ColumnId, Task } from '../types';
 import { triggerAgentForTask } from '../agent/taskAgent';
+import { mergeTaskWorktree } from '../agent/worktreeManager';
 import { kanbanWss } from '../index';
 
 const router = Router({ mergeParams: true });
@@ -157,6 +158,19 @@ router.post('/:id/move', async (req: Request, res: Response) => {
     if (toColumn === 'in-progress' && source !== 'agent') {
       triggerAgentForTask(projectId, task, kanbanWss).catch((err) => {
         console.error('[taskAgent] Failed to trigger agent for task', task.id, err);
+      });
+    }
+
+    if (toColumn === 'done') {
+      // Fire and forget — don't block the response
+      mergeTaskWorktree(projectId, id).then((result) => {
+        if (result.merged) {
+          console.log(`[worktree] ${result.message}`);
+        } else {
+          console.warn(`[worktree] ${result.message}`);
+        }
+      }).catch((err) => {
+        console.error('[worktree] Unexpected error', err);
       });
     }
   } catch (err) {

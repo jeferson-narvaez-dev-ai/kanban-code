@@ -236,6 +236,21 @@ router.post('/:id/harness', async (req: Request, res: Response) => {
       } catch { /* non-fatal */ }
     }
 
+    // Add .worktrees/ to .gitignore if not already there
+    const worktreesGitignorePath = path.join(sourcePath, '.gitignore');
+    try {
+      let gitignoreContent = '';
+      try { gitignoreContent = await fs.readFile(worktreesGitignorePath, 'utf-8'); } catch { /* file doesn't exist yet */ }
+      if (!gitignoreContent.includes('.worktrees/')) {
+        const entry = gitignoreContent.endsWith('\n') || gitignoreContent === ''
+          ? '.worktrees/\n'
+          : '\n.worktrees/\n';
+        await fs.appendFile(worktreesGitignorePath, entry, 'utf-8');
+      }
+    } catch (err) {
+      console.warn('[harness] Could not update .gitignore:', err);
+    }
+
     const commandsDir = path.join(sourcePath, '.claude', 'commands');
     res.json({
       success: true,

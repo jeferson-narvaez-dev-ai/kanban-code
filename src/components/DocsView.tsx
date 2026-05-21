@@ -172,6 +172,20 @@ function FileView({ projectId, filePath }: FileViewProps) {
 
 export function DocsView({ projectId }: Props) {
   const [selectedPath, setSelectedPath] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const ws = new WebSocket(`ws://localhost:3001/ws`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data as string) as { type: string; projectId?: string };
+        if (msg.type === 'files:changed' && msg.projectId === projectId) {
+          void queryClient.invalidateQueries({ queryKey: ['files', projectId] });
+        }
+      } catch { /* ignore */ }
+    };
+    return () => ws.close();
+  }, [projectId, queryClient]);
 
   return (
     <div className="flex h-full overflow-hidden">

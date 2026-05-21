@@ -51,4 +51,11 @@ export interface WsConnected {
   message: string;
 }
 
-export type WsEvent = WsColumnChanged | WsConnected;
+export interface WsFilesChanged {
+  type: 'files:changed';
+  projectId: string;
+  path: string;
+  timestamp: string;
+}
+
+export type WsEvent = WsColumnChanged | WsConnected | WsFilesChanged;

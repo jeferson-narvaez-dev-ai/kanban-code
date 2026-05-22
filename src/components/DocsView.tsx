@@ -13,6 +13,12 @@ interface Props {
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 
+const BINARY_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp']);
+function ext(p: string) { return p.slice(p.lastIndexOf('.')).toLowerCase(); }
+function isBinary(p: string) { return BINARY_EXTS.has(ext(p)); }
+function isPdf(p: string) { return ext(p) === '.pdf'; }
+function isImage(p: string) { return ['.png','.jpg','.jpeg','.gif','.svg','.webp'].includes(ext(p)); }
+
 // Inner editor keyed by path — remounts cleanly on file change
 interface EditorProps {
   projectId: string;
@@ -21,6 +27,7 @@ interface EditorProps {
 }
 
 function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
+  const binary = isBinary(filePath);
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
   const [draftContent, setDraftContent] = useState(initialContent);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -69,6 +76,7 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
           {saveStatus === 'saved' && (
             <span className="text-xs text-[#3fb950]">Saved</span>
           )}
+          {!binary && (
           <div className="flex items-center rounded-md overflow-hidden border border-[#30363d]">
             <button
               onClick={() => setMode('preview')}
@@ -97,12 +105,27 @@ function FileEditor({ projectId, filePath, initialContent }: EditorProps) {
               Edit
             </button>
           </div>
+          )}
         </div>
       </div>
 
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
-        {mode === 'preview' ? (
+        {isPdf(filePath) ? (
+          <iframe
+            src={`/api/projects/${projectId}/files/raw?path=${encodeURIComponent(filePath)}`}
+            className="w-full h-full border-none bg-white"
+            title={filePath}
+          />
+        ) : isImage(filePath) ? (
+          <div className="flex items-center justify-center h-full overflow-auto p-6 bg-[#0d1117]">
+            <img
+              src={`/api/projects/${projectId}/files/raw?path=${encodeURIComponent(filePath)}`}
+              alt={filePath}
+              className="max-w-full max-h-full object-contain rounded"
+            />
+          </div>
+        ) : mode === 'preview' ? (
           filePath.endsWith('.html') ? (
             <iframe
               srcDoc={draftContent}
@@ -155,13 +178,16 @@ interface FileViewProps {
 }
 
 function FileView({ projectId, filePath }: FileViewProps) {
+  const binary = isBinary(filePath);
+
   const { data: fileData, isLoading } = useQuery({
     queryKey: ['file-content', projectId, filePath],
     queryFn: () => getFileContent(projectId, filePath),
-    staleTime: Infinity, // we manage freshness manually after saves
+    staleTime: Infinity,
+    enabled: !binary, // skip text fetch for PDFs/images
   });
 
-  if (isLoading) {
+  if (!binary && isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-sm text-[#8b949e]">Loading...</p>
@@ -208,16 +234,23 @@ export function DocsView({ projectId }: Props) {
     setIsDragOver(false);
   }
 
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function handleClickUpload() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    await uploadFiles(files);
+  }
+
+  async function uploadFiles(files: File[]) {
     setUploadStatus('uploading');
     const formData = new FormData();
     files.forEach(f => formData.append('file', f));
-
     try {
       const res = await fetch(`/api/projects/${projectId}/files/upload`, {
         method: 'POST',
@@ -231,6 +264,14 @@ export function DocsView({ projectId }: Props) {
       setUploadStatus('error');
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    await uploadFiles(files);
   }
 
   return (
@@ -255,9 +296,10 @@ export function DocsView({ projectId }: Props) {
         {!selectedPath ? (
           <div
             className={clsx(
-              'flex-1 flex flex-col items-center justify-center gap-4 text-center px-8 transition-colors',
+              'flex-1 flex flex-col items-center justify-center gap-4 text-center px-8 transition-colors cursor-pointer',
               isDragOver ? 'bg-[#1f6feb15]' : ''
             )}
+            onClick={handleClickUpload}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -285,13 +327,20 @@ export function DocsView({ projectId }: Props) {
                 {uploadStatus === 'uploading' ? 'Uploading...' :
                  uploadStatus === 'success' ? '✓ File added to references/' :
                  uploadStatus === 'error' ? '✗ Upload failed' :
-                 'or drag & drop a file here to add it to references/'}
+                 'or click / drag & drop to add to references/'}
               </p>
             </div>
           </div>
         ) : (
           <FileView projectId={projectId} filePath={selectedPath} />
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
       </div>
     </div>
   );

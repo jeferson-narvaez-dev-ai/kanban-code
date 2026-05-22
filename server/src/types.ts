@@ -70,4 +70,9 @@ export interface WsFilesChanged {
   timestamp: string;
 }
 
-export type WsEvent = WsColumnChanged | WsConnected | WsFilesChanged;
+export interface WsNotificationsChanged {
+  type: 'notifications:changed';
+  projectId: string;
+}
+
+export type WsEvent = WsColumnChanged | WsConnected | WsFilesChanged | WsNotificationsChanged;

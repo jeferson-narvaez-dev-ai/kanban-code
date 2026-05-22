@@ -139,6 +139,16 @@ EOF
   \`\`\`
 - **NEVER move a task from \`in-progress\` to \`waiting-approval\` without first confirming that \`## Implementation Notes\` exists in the task file.** The reviewer depends on this to understand what was done.
 
+## Step 3b: Run test commands before moving to waiting-approval
+If the target column is \`waiting-approval\`:
+- Read \`{KANBAN_WORKSPACE}/{KANBAN_PROJECT}/project-config.md\`
+- Parse the \`testCommands\` list from the frontmatter
+- Run each command in the project source directory (cwd of the project, not the harness)
+- If any command fails:
+  1. Load \`.claude/skills/sdd-notify/SKILL.md\` and write an error notification (type: error, taskId: TASK-ID)
+  2. Do NOT move the task — report: "❌ Tests failed. Task not moved. See notifications."
+- If all pass, continue to Step 4.
+
 ## Step 4: Move the file
 - Read the task file content
 - Add/replace \`updatedAt: {ISO timestamp}\` in the frontmatter
@@ -459,6 +469,19 @@ design/
 plans/active/
 plans/completed/
 references/
+flow/
+notifications/
+\`\`\`
+Create \`project-config.md\` if it doesn't exist (use the template from harness docs):
+\`\`\`
+---
+setupCommands:
+  - {detected setup command}
+testCommands:
+  - {detected test command}
+setupInstructions: |
+  Describe any manual setup steps here.
+---
 \`\`\`
 
 ### Step 3: Write skill registry
@@ -482,6 +505,7 @@ Create \`.claude/skills/_shared/skill-registry.md\`:
 | sdd-apply | .claude/skills/sdd-apply/SKILL.md | /sdd-apply |
 | sdd-verify | .claude/skills/sdd-verify/SKILL.md | /sdd-verify |
 | sdd-archive | .claude/skills/sdd-archive/SKILL.md | /sdd-archive |
+| sdd-notify | .claude/skills/sdd-notify/SKILL.md | write notifications on failures/blockers |
 \`\`\`
 
 ### Step 4: Write CLAUDE.md
@@ -1269,7 +1293,8 @@ This project uses a kanban harness layout. All SDD artifacts live in the project
 ├── plans/
 │   ├── active/                ← Implementation task lists
 │   └── completed/             ← Done plans (YYYY-MM-DD prefix)
-├── references/
+├── references/                ← External files provided by the user (PDF, CSV, Excel, TXT, images…). Read for context. Do NOT write generated files here.
+├── flow/                      ← Generated files (specs, designs, proposals, implementation notes, diagrams, SDD artifacts). Write all agent-generated artifacts here.
 ├── AGENTS.md
 └── ARCHITECTURE.md
 \`\`\`
@@ -1397,6 +1422,65 @@ When the task is moved to **done** by the reviewer, the worktree branch is autom
   ];
 }
 
+// ─── sdd-notify skill ─────────────────────────────────────────────────────────
+
+function buildSddNotifySkill(): SkillFile[] {
+  return [
+    {
+      dir: '.claude/skills/sdd-notify',
+      filename: 'SKILL.md',
+      content: `---
+name: sdd-notify
+version: 1.0.0
+description: Write a structured notification to the project notifications folder
+---
+
+# sdd-notify
+
+Use this skill whenever something important happens that the user should see: setup failures, test failures, blockers, warnings, or informational milestones.
+
+## When to use
+- Setup or install commands fail
+- Tests fail before moving to waiting-approval
+- You encounter a blocker you can't resolve
+- You want to flag a warning or info for the human reviewer
+
+## Steps
+
+1. Read \`.env.kanban\` → get \`KANBAN_WORKSPACE\` and \`KANBAN_PROJECT\`
+2. Set \`notifications_dir = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/notifications/\`
+3. Create a notification file named \`{timestamp}-{slug}.md\` where:
+   - \`timestamp\` = current UTC time as \`YYYYMMDD-HHmmss\`
+   - \`slug\` = first 5 words of title, lowercased, spaces → dashes
+4. Write the file with this frontmatter:
+
+\`\`\`markdown
+---
+type: error | warning | info
+title: "Your notification title"
+source: agent
+taskId: TASK-XXX  (if applicable)
+read: false
+createdAt: {ISO 8601 timestamp}
+---
+
+Detailed explanation of what happened, what you tried, and what the user should do.
+\`\`\`
+
+5. Call the notifications API to trigger a refresh (optional — the server watches the folder):
+   \`\`\`bash
+   curl -s -X POST http://localhost:3001/api/projects/\${KANBAN_PROJECT}/notifications/refresh || true
+   \`\`\`
+
+## Notification types
+- \`error\` — something failed and blocks progress
+- \`warning\` — something is wrong but not blocking
+- \`info\` — milestone, FYI, or status update
+`,
+    },
+  ];
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function installSkills(cwd: string): Promise<number> {
@@ -1405,6 +1489,7 @@ export async function installSkills(cwd: string): Promise<number> {
     ...buildSddCommands(),
     ...buildSddPhaseSkills(),
     ...buildSddSharedFiles(),
+    ...buildSddNotifySkill(),
   ];
 
   for (const skill of allFiles) {

@@ -94,4 +94,9 @@ export interface WsAgentDone {
   outputTokens?: number;
 }
 
-export type WsEvent = WsColumnChanged | WsConnected | WsSessionCreated | WsAgentText | WsAgentTool | WsAgentDone;
+export interface WsNotificationsChanged {
+  type: 'notifications:changed';
+  projectId: string;
+}
+
+export type WsEvent = WsColumnChanged | WsConnected | WsSessionCreated | WsAgentText | WsAgentTool | WsAgentDone | WsNotificationsChanged;

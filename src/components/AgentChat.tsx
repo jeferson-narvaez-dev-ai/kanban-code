@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { Bot, Send, X, Wrench, RefreshCw } from 'lucide-react';
+import { Bot, Send, X, Wrench, RefreshCw, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { WsEvent } from '../../shared/types';
@@ -55,29 +55,46 @@ function parseSseBlock(block: string): { event: string; data: string } | null {
   return { event, data };
 }
 
+function storageKey(sessionId: string) {
+  return `agent-chat:${sessionId}`;
+}
+
+function loadMessages(sessionId: string | undefined, initialMessages?: Props['initialMessages']): Message[] {
+  if (sessionId) {
+    try {
+      const stored = localStorage.getItem(storageKey(sessionId));
+      if (stored) return JSON.parse(stored) as Message[];
+    } catch { /* ignore */ }
+  }
+  if (initialMessages && initialMessages.length > 0) {
+    return initialMessages.map(m => ({ role: m.role, content: m.content }));
+  }
+  return [];
+}
+
 export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
   // Track the previous sessionId to reset state when it changes (derived state pattern)
   const [prevSessionId, setPrevSessionId] = useState<string | undefined>(sessionId);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (initialMessages && initialMessages.length > 0) {
-      return initialMessages.map(m => ({ role: m.role, content: m.content }));
-    }
-    return [];
-  });
+  const [messages, setMessages] = useState<Message[]>(() => loadMessages(sessionId, initialMessages));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [toolActivity, setToolActivity] = useState<ToolActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastCost, setLastCost] = useState<{ usd: number; durationMs?: number; inputTokens?: number; outputTokens?: number } | null>(null);
 
-  // Derived state: reset messages when sessionId changes (render-phase setState, React-safe pattern)
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      localStorage.setItem(storageKey(sessionId), JSON.stringify(messages));
+    } catch { /* ignore quota errors */ }
+  }, [sessionId, messages]);
+
+  // Reset messages when sessionId changes — load from localStorage or initialMessages
   if (prevSessionId !== sessionId) {
     setPrevSessionId(sessionId);
-    const mapped = (initialMessages && initialMessages.length > 0)
-      ? initialMessages.map(m => ({ role: m.role, content: m.content }))
-      : [];
-    setMessages(mapped);
+    setMessages(loadMessages(sessionId, initialMessages));
     setError(null);
     setToolActivity(null);
   }
@@ -265,6 +282,16 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
     } catch { /* ignore */ }
   }
 
+  function handleClearChat() {
+    if (sessionId) {
+      try { localStorage.removeItem(storageKey(sessionId)); } catch { /* ignore */ }
+    }
+    setMessages([]);
+    setError(null);
+    setToolActivity(null);
+    setLastCost(null);
+  }
+
   function formatToolInput(input: Record<string, unknown>): string {
     const entries = Object.entries(input);
     if (entries.length === 0) return '';
@@ -302,6 +329,16 @@ export function AgentChat({ projectId, sessionId, initialMessages }: Props) {
             title="Refresh"
           >
             <RefreshCw size={13} aria-hidden="true" />
+          </button>
+        )}
+        {messages.length > 0 && !loading && (
+          <button
+            onClick={handleClearChat}
+            className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md text-[#8b949e] hover:text-[#f85149] hover:bg-[#21262d] transition-colors focus:outline-none focus:ring-1 focus:ring-[#f85149]"
+            aria-label="Clear chat history"
+            title="Clear chat"
+          >
+            <Trash2 size={13} aria-hidden="true" />
           </button>
         )}
       </div>

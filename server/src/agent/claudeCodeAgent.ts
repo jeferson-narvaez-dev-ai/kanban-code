@@ -92,7 +92,7 @@ export async function chat(options: ClaudeCodeAgentOptions): Promise<ClaudeCodeA
     ? `
 ## Kanban Context
 You are managing tasks for project: **${projectId}**
-Workspace: ${config.workspace}/${projectId}/.kanban/
+Workspace: ${config.workspace}/${projectId}/
 Project source path: ${projectPath}
 
 ## Kanban REST API (use Bash + curl to call these endpoints)
@@ -126,6 +126,21 @@ Write "## Implementation Notes" and optionally "## Questions" in the task body t
 
 ## Session Continuity
 If this task was previously in development and sent back to in-progress, you will receive the prior conversation history as context. Review it before continuing work.
+
+## Project File Structure
+- \`references/\`  → external files provided by the user (PDF, CSV, Excel, TXT, images…). Read these for context. Do NOT write generated files here.
+- \`flow/\`         → generated files (specs, designs, proposals, implementation notes, diagrams). Write all your generated artifacts here.
+
+## Project Config
+Project setup and test commands are in: ${config.workspace}/${projectId}/project-config.md
+Read this file before starting work. Run testCommands and verify they pass before moving to waiting-approval.
+
+## Notifications
+Write important events (failures, blockers, warnings) to the notifications folder using the sdd-notify skill or by writing directly to:
+  ${config.workspace}/${projectId}/notifications/{timestamp}-{slug}.md
+Format: markdown with frontmatter (type, title, source: "agent", taskId, read: false, createdAt).
+- type: error (blocks progress) | warning (not blocking) | info (milestone/FYI)
+- slug = first 5 words of title, lowercased, spaces → dashes
 
 When the user asks you to create, move, or manage tasks → use curl to call the API.
 When the user asks you to explore the project → use Read/Grep/Glob on: ${projectPath}

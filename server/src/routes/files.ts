@@ -60,6 +60,36 @@ router.get('/content', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/projects/:projectId/files/raw?path=
+// Serves a file as binary with correct Content-Type (for PDFs, images, etc.)
+router.get('/raw', async (req: Request, res: Response) => {
+  const projectId = String(req.params['projectId']);
+  const relPath = String(req.query['path'] || '');
+  if (!relPath) { res.status(400).json({ error: 'path query param required' }); return; }
+  const root = resolveProjectRoot(projectId);
+  const target = safePath(root, relPath);
+  if (!target) { res.status(400).json({ error: 'Invalid path' }); return; }
+  try {
+    const ext = path.extname(target).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.webp': 'image/webp',
+    };
+    const contentType = mimeMap[ext] ?? 'application/octet-stream';
+    const data = await fs.readFile(target);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.send(data);
+  } catch (err) {
+    res.status(404).json({ error: `Cannot read file: ${err instanceof Error ? err.message : String(err)}` });
+  }
+});
+
 // PUT /api/projects/:projectId/files/content?path=
 // Saves file content
 router.put('/content', async (req: Request, res: Response) => {
@@ -104,7 +134,9 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/projects/:projectId/files/upload
-// Accepts multipart/form-data and saves files to references/
+// Accepts multipart/form-data and saves files to references/ (external files only).
+// references/ is reserved for user-provided external files (PDF, CSV, Excel, TXT, images, etc.).
+// Agent-generated files (specs, designs, proposals, notes) belong in flow/ instead.
 const upload = multer({ storage: multer.memoryStorage() });
 router.post('/upload', upload.array('file'), async (req: Request, res: Response) => {
   const projectId = String(req.params['projectId']);

@@ -333,6 +333,8 @@ export async function initProject(projectId: string, meta?: Partial<ProjectMeta>
     path.join(projectRoot, 'plans', 'active'),
     path.join(projectRoot, 'plans', 'completed'),
     path.join(projectRoot, 'references'),
+    path.join(projectRoot, 'flow'),
+    path.join(projectRoot, 'notifications'),
   ];
   for (const dir of dirs) {
     await fs.mkdir(dir, { recursive: true });
@@ -360,7 +362,8 @@ This file defines how AI agents should work with this project.
 - \`design/\` — Technical design documents (ADRs)
 - \`plans/active/\` — Implementation task lists (SDD tasks)
 - \`plans/completed/\` — Completed plans
-- \`references/\` — Reference material
+- \`references/\` — External files provided by the user (PDF, CSV, Excel, TXT, images, etc.). Read these for context. Do NOT write generated files here.
+- \`flow/\` — Generated files produced by the agent during planning and execution (specs, designs, proposals, implementation notes, diagrams, SDD artifacts, etc.). Write all generated artifacts here.
 
 ## SDD Workflow (Spec-Driven Development)
 Use these slash commands to manage changes:
@@ -395,6 +398,30 @@ Document the high-level architecture of this project here.
 ## Key Decisions
 
 ## Tech Stack
+`, 'utf-8');
+  }
+
+  // Create project-config.md if not present
+  const projectConfigFile = path.join(projectRoot, 'project-config.md');
+  if (!fsSync.existsSync(projectConfigFile)) {
+    await fs.writeFile(projectConfigFile, `---
+setupCommands:
+  - npm install
+  - npm run build
+testCommands:
+  - npm test
+  - npm run lint
+setupInstructions: |
+  Describe any manual setup steps here.
+---
+
+# Project Configuration
+
+## Setup Commands
+Run these before starting work on this project.
+
+## Test Commands
+These MUST pass before moving any task to \`waiting-approval\`.
 `, 'utf-8');
   }
 

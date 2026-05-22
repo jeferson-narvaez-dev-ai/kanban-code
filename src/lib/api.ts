@@ -141,3 +141,40 @@ export const deleteSession = (projectId: string, sessionId: string) =>
 
 export const renameSession = (projectId: string, sessionId: string, name: string) =>
   api.patch(`/projects/${projectId}/sessions/${sessionId}`, { name }).then(r => r.data);
+
+// --- Notifications API ---
+
+export interface NotificationItem {
+  filename: string;
+  type: 'error' | 'warning' | 'info';
+  title: string;
+  source: 'agent' | 'system' | 'user';
+  taskId?: string;
+  read: boolean;
+  createdAt: string;
+  body: string;
+}
+
+export const listNotifications = (projectId: string) =>
+  api.get<NotificationItem[]>(`/projects/${projectId}/notifications`).then(r => r.data);
+
+export const markNotificationRead = (projectId: string, filename: string) =>
+  api.patch(`/projects/${projectId}/notifications/${encodeURIComponent(filename)}`).then(r => r.data);
+
+export const deleteNotification = (projectId: string, filename: string) =>
+  api.delete(`/projects/${projectId}/notifications/${encodeURIComponent(filename)}`).then(r => r.data);
+
+// --- Project Config API ---
+
+export interface ProjectConfig {
+  setupCommands: string[];
+  testCommands: string[];
+  setupInstructions: string;
+  raw: string;
+}
+
+export const getProjectConfig = (projectId: string) =>
+  api.get<ProjectConfig>(`/projects/${projectId}/config`).then(r => r.data);
+
+export const saveProjectConfig = (projectId: string, content: string) =>
+  api.put<ProjectConfig>(`/projects/${projectId}/config`, { content }).then(r => r.data);

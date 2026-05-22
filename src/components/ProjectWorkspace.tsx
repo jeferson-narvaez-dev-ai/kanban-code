@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@tanstack/react-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Kanban, FileText, Bot, Zap } from 'lucide-react';
+import { ChevronLeft, Kanban, FileText, Bot, Zap, Bell, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import type { Project } from '../types';
 import type { Epic } from '../../shared/types';
@@ -10,7 +10,9 @@ import { KanbanBoard } from './KanbanBoard';
 import { DocsView } from './DocsView';
 import { AgentChat } from './AgentChat';
 import { SessionsSidebar } from './SessionsSidebar';
-import { setupHarness, getSession, createSession, listEpics } from '../lib/api';
+import { NotificationsView } from './NotificationsView';
+import { ProjectConfigView } from './ProjectConfigView';
+import { setupHarness, getSession, createSession, listEpics, listNotifications } from '../lib/api';
 import type { ChatMessage } from '../lib/api';
 import type { WsEvent } from '../../shared/types';
 
@@ -26,11 +28,13 @@ function NavItem({
   label,
   active,
   onClick,
+  badge,
 }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button
@@ -43,7 +47,12 @@ function NavItem({
       )}
     >
       {icon}
-      {label}
+      <span className="flex-1 text-left">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="bg-[#f85149] text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -60,6 +69,14 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
     queryKey: ['epics', projectId],
     queryFn: () => listEpics(projectId),
   });
+
+  // Unread notifications count for badge
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications', projectId],
+    queryFn: () => listNotifications(projectId),
+    refetchInterval: 15_000,
+  });
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   // Auto-navigate to Agent tab when a session is created by the server (e.g. task dragged to in-progress)
   useEffect(() => {
@@ -78,6 +95,9 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
         ) {
           void queryClient.invalidateQueries({ queryKey: ['sessions', projectId] });
           void handleSelectSession(data.sessionId);
+        }
+        if (data.type === 'notifications:changed' && data.projectId === projectId) {
+          void queryClient.invalidateQueries({ queryKey: ['notifications', projectId] });
         }
       } catch {
         // ignore malformed messages
@@ -225,6 +245,19 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
             active={activeTab === 'agent'}
             onClick={() => setActiveTab('agent')}
           />
+          <NavItem
+            icon={<Bell size={15} />}
+            label="Notifications"
+            active={activeTab === 'notifications'}
+            onClick={() => setActiveTab('notifications')}
+            badge={unreadCount}
+          />
+          <NavItem
+            icon={<Settings size={15} />}
+            label="Config"
+            active={activeTab === 'config'}
+            onClick={() => setActiveTab('config')}
+          />
         </nav>
 
         {/* Sessions list — only when agent tab is active */}
@@ -261,6 +294,12 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
             sessionId={activeSessionId}
             initialMessages={sessionMessages}
           />
+        )}
+        {activeTab === 'notifications' && (
+          <NotificationsView projectId={projectId} />
+        )}
+        {activeTab === 'config' && (
+          <ProjectConfigView projectId={projectId} />
         )}
       </main>
     </div>

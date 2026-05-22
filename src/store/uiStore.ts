@@ -5,7 +5,7 @@ interface UIState {
   activeEpicId: string | null;
   activeProjectId: string | null;
   filterPriority: 'all' | 'high' | 'medium' | 'low';
-  activeTab: 'board' | 'docs' | 'agent';
+  activeTab: 'board' | 'docs' | 'agent' | 'notifications' | 'config';
 }
 
 export const uiStore = new Store<UIState>({
@@ -35,3 +35,5 @@ export function setFilterPriority(p: UIState['filterPriority']) {
 export function setActiveTab(tab: UIState['activeTab']) {
   uiStore.setState(s => ({ ...s, activeTab: tab }));
 }
+
+export type ActiveTab = UIState['activeTab'];

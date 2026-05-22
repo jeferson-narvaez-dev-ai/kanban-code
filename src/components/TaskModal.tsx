@@ -246,7 +246,7 @@ Always respond in the same language as the user.`
       <div
         className={clsx(
           'w-full mx-4',
-          showChat ? 'max-w-5xl flex max-h-[90vh]' : 'max-w-md max-h-[90vh]'
+          showChat ? 'max-w-5xl flex max-h-[90vh]' : 'max-w-md flex flex-col max-h-[90vh]'
         )}
         style={{
           background: '#111116',
@@ -256,7 +256,7 @@ Always respond in the same language as the user.`
         }}
       >
         {/* Form column */}
-        <div className={clsx('flex flex-col min-h-0', showChat ? 'flex-1 min-w-0' : '')}>
+        <div className={clsx('flex flex-col min-h-0 overflow-hidden', showChat ? 'flex-1 min-w-0' : 'flex-1')}>
           {/* Header */}
           <div
             className="flex items-center justify-between px-5 py-4"

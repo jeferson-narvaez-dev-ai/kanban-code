@@ -40,16 +40,34 @@ function NavItem({
     <button
       onClick={onClick}
       className={clsx(
-        'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
+        'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all duration-100 focus:outline-none relative',
         active
-          ? 'bg-[#21262d] text-[#e6edf3]'
-          : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#21262d]/50'
+          ? 'text-[#f4f4f5]'
+          : 'text-[#71717a] hover:text-[#a1a1aa]'
       )}
+      style={active ? {
+        background: 'rgba(99,102,241,0.1)',
+        borderLeft: '2px solid #6366f1',
+        paddingLeft: '10px',
+        boxShadow: 'inset 0 0 12px rgba(99,102,241,0.06)',
+      } : {
+        borderLeft: '2px solid transparent',
+      }}
     >
-      {icon}
+      <span style={{ color: active ? '#818cf8' : 'inherit' }}>{icon}</span>
       <span className="flex-1 text-left">{label}</span>
       {badge != null && badge > 0 && (
-        <span className="bg-[#f85149] text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">
+        <span
+          className="font-mono leading-none min-w-[16px] text-center"
+          style={{
+            fontSize: '9px',
+            fontWeight: 700,
+            background: '#ef4444',
+            color: 'white',
+            borderRadius: '9999px',
+            padding: '2px 5px',
+          }}
+        >
           {badge > 99 ? '99+' : badge}
         </span>
       )}
@@ -85,7 +103,7 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
   });
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Auto-navigate to Agent tab when a session is created by the server (e.g. task dragged to in-progress)
+  // Auto-navigate to Agent tab when a session is created by the server
   useEffect(() => {
     const wsUrl =
       (import.meta.env.VITE_WS_URL as string | undefined) ||
@@ -131,7 +149,7 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
     setHarnessState('loading');
     try {
       const result = await setupHarness(projectId);
-      setHarnessMsg(`${result.skills.length} skills → ${result.commandsDir}`);
+      setHarnessMsg(`${result.skills.length} skills installed`);
       setHarnessState('success');
       setTimeout(() => setHarnessState('idle'), 3000);
     } catch (err: unknown) {
@@ -166,43 +184,103 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
   }
 
   return (
-    <div className="h-screen bg-[#0d1117] flex overflow-hidden">
+    <div className="h-screen flex overflow-hidden" style={{ background: '#09090b' }}>
       {/* Left Sidebar */}
-      <aside className="w-[220px] flex-shrink-0 bg-[#161b22] border-r border-[#30363d] flex flex-col overflow-hidden">
-        {/* Breadcrumb */}
-        <div className="px-3 py-3 border-b border-[#30363d]">
+      <aside
+        className="w-[216px] flex-shrink-0 flex flex-col overflow-hidden"
+        style={{
+          background: '#111116',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        {/* Project header */}
+        <div
+          className="px-3 py-3"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <button
             onClick={onNavigateHome}
-            className="flex items-center gap-1 text-xs text-[#8b949e] hover:text-[#e6edf3] transition-colors mb-1 focus:outline-none"
+            className="flex items-center gap-1 transition-colors focus:outline-none mb-2"
+            style={{ fontSize: '11px', color: '#52525b' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#71717a'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#52525b'; }}
             aria-label="Go home"
           >
-            <ChevronLeft size={12} />
-            Home
+            <ChevronLeft size={11} />
+            <span>Home</span>
           </button>
-          <p className="text-sm font-semibold text-[#e6edf3] truncate">{projectName}</p>
+
+          <div className="flex items-center gap-2 min-w-0">
+            <p
+              className="text-sm font-semibold truncate flex-1"
+              style={{ color: '#f4f4f5', fontSize: '13px' }}
+            >
+              {projectName}
+            </p>
+            <span
+              className={clsx(
+                'flex-shrink-0 inline-flex items-center gap-1 rounded font-mono leading-none',
+              )}
+              style={{
+                fontSize: '9px',
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+                padding: '2px 6px',
+                ...(agentMode === 'manual'
+                  ? {
+                      background: 'rgba(255,255,255,0.04)',
+                      color: '#52525b',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }
+                  : {
+                      background: 'rgba(16,185,129,0.1)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16,185,129,0.2)',
+                    }),
+              }}
+              title={agentMode === 'manual' ? 'Agent disabled (manual mode)' : 'Agent active (auto mode)'}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: agentMode === 'manual' ? '#52525b' : '#10b981',
+                  boxShadow: agentMode === 'manual' ? 'none' : '0 0 4px rgba(16,185,129,0.5)',
+                }}
+              />
+              {agentMode === 'manual' ? 'manual' : 'agent'}
+            </span>
+          </div>
         </div>
 
         {/* Setup Harness */}
-        <div className="px-3 py-2 border-b border-[#30363d]">
+        <div
+          className="px-3 py-2.5"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <button
             onClick={handleSetupHarness}
             disabled={harnessState === 'loading'}
             className={clsx(
-              'w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded border transition-colors focus:outline-none focus:ring-1 focus:ring-[#58a6ff] disabled:opacity-50 disabled:cursor-not-allowed',
-              harnessState === 'success'
-                ? 'text-[#3fb950] border-[#3fb950]'
-                : harnessState === 'error'
-                ? 'text-[#f85149] border-[#f85149]'
-                : 'text-[#8b949e] hover:text-[#e6edf3] border-[#30363d] hover:border-[#8b949e]'
+              'w-full flex items-center gap-1.5 rounded-md transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed',
             )}
+            style={{
+              fontSize: '11px',
+              fontWeight: 500,
+              padding: '5px 8px',
+              ...(harnessState === 'success'
+                ? { color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }
+                : harnessState === 'error'
+                ? { color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }
+                : { color: '#71717a', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }),
+            }}
             aria-label="Setup Harness"
           >
             {harnessState === 'loading' ? (
               <>
                 <svg
                   className="animate-spin"
-                  width={13}
-                  height={13}
+                  width={12}
+                  height={12}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -215,7 +293,7 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
               </>
             ) : (
               <>
-                <Zap size={13} aria-hidden="true" />
+                <Zap size={12} aria-hidden="true" />
                 {harnessState === 'success' ? 'Harness ready' : 'Setup Harness'}
               </>
             )}
@@ -223,9 +301,10 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
           {(harnessState === 'success' || harnessState === 'error') && harnessMsg && (
             <span
               className={clsx(
-                'block mt-1 text-[10px] truncate',
-                harnessState === 'success' ? 'text-[#3fb950]' : 'text-[#f85149]'
+                'block mt-1 truncate font-mono',
+                harnessState === 'success' ? 'text-[#10b981]' : 'text-[#ef4444]'
               )}
+              style={{ fontSize: '9px' }}
               title={harnessMsg}
             >
               {harnessMsg}
@@ -236,34 +315,34 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
         {/* Nav */}
         <nav className="px-2 py-2 space-y-0.5">
           <NavItem
-            icon={<Kanban size={15} />}
+            icon={<Kanban size={14} />}
             label="Board"
             active={activeTab === 'board'}
             onClick={() => setActiveTab('board')}
           />
           <NavItem
-            icon={<FileText size={15} />}
+            icon={<FileText size={14} />}
             label="Docs"
             active={activeTab === 'docs'}
             onClick={() => setActiveTab('docs')}
           />
           {agentMode !== 'manual' && (
             <NavItem
-              icon={<Bot size={15} />}
+              icon={<Bot size={14} />}
               label="Agent"
               active={activeTab === 'agent'}
               onClick={() => setActiveTab('agent')}
             />
           )}
           <NavItem
-            icon={<Bell size={15} />}
+            icon={<Bell size={14} />}
             label="Notifications"
             active={activeTab === 'notifications'}
             onClick={() => setActiveTab('notifications')}
             badge={unreadCount}
           />
           <NavItem
-            icon={<Settings size={15} />}
+            icon={<Settings size={14} />}
             label="Config"
             active={activeTab === 'config'}
             onClick={() => setActiveTab('config')}
@@ -272,7 +351,10 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
 
         {/* Sessions list — only when agent tab is active and not in manual mode */}
         {activeTab === 'agent' && agentMode !== 'manual' && (
-          <div className="flex-1 overflow-y-auto border-t border-[#30363d] px-2 py-2">
+          <div
+            className="flex-1 overflow-y-auto px-2 py-2"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
             <SessionsSidebar
               projectId={projectId}
               activeSessionId={activeSessionId}
@@ -307,13 +389,14 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
           />
         )}
         {activeTab === 'agent' && agentMode === 'manual' && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center" style={{ background: '#09090b' }}>
             <div className="text-center space-y-2">
-              <Bot size={32} className="text-[#30363d] mx-auto" />
-              <p className="text-sm font-medium text-[#8b949e]">Agent disabled</p>
-              <p className="text-xs text-[#484f58]">
-                This project is in <span className="text-[#e6edf3] font-mono">manual</span> mode.
-                Enable <span className="text-[#e6edf3] font-mono">auto</span> mode in Config to use the agent.
+              <Bot size={28} style={{ color: '#3f3f46', margin: '0 auto' }} />
+              <p style={{ fontSize: '13px', fontWeight: 500, color: '#71717a' }}>Agent disabled</p>
+              <p style={{ fontSize: '11px', color: '#52525b' }}>
+                This project is in{' '}
+                <span className="font-mono" style={{ color: '#a1a1aa' }}>manual</span> mode.
+                Enable <span className="font-mono" style={{ color: '#a1a1aa' }}>auto</span> in Config to use the agent.
               </p>
             </div>
           </div>

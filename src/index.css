@@ -2,17 +2,135 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
+/* ─── Design System Variables ─────────────────────────────────────────────── */
+:root {
+  /* Background hierarchy */
+  --bg-base:        #09090b;
+  --bg-surface:     #111116;
+  --bg-elevated:    #18181f;
+  --bg-overlay:     #1e1e28;
+
+  /* Borders — near-invisible depth */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-dim:     rgba(255, 255, 255, 0.09);
+  --border-normal:  rgba(255, 255, 255, 0.12);
+  --border-strong:  rgba(255, 255, 255, 0.18);
+
+  /* Text */
+  --text-primary:   #f4f4f5;
+  --text-muted:     #a1a1aa;
+  --text-subtle:    #71717a;
+  --text-faint:     #52525b;
+
+  /* Accent — blue-violet */
+  --accent:         #6366f1;
+  --accent-hover:   #818cf8;
+  --accent-pressed: #4f46e5;
+  --accent-dim:     rgba(99, 102, 241, 0.15);
+  --accent-glow:    rgba(99, 102, 241, 0.3);
+
+  /* Semantic */
+  --success:        #10b981;
+  --success-dim:    rgba(16, 185, 129, 0.15);
+  --warning:        #f59e0b;
+  --warning-dim:    rgba(245, 158, 11, 0.15);
+  --danger:         #ef4444;
+  --danger-dim:     rgba(239, 68, 68, 0.15);
+
+  /* Column accent colors */
+  --col-backlog:    #8b5cf6;
+  --col-progress:   #3b82f6;
+  --col-approval:   #f59e0b;
+  --col-done:       #10b981;
+
+  /* Typography */
+  --font-ui:        'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Shadows */
+  --shadow-card:    0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.09);
+  --shadow-drag:    0 0 0 2px #6366f1, 0 8px 24px rgba(99, 102, 241, 0.3);
+  --shadow-modal:   0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Global Reset & Base ─────────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   margin: 0;
-  background-color: #0d1117;
-  color: #e6edf3;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ─── Noise Texture Overlay ───────────────────────────────────────────────── */
+.noise-overlay {
+  position: relative;
+}
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  z-index: 0;
+}
+
+/* ─── Custom Scrollbars ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* ─── Monospace utilities ─────────────────────────────────────────────────── */
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+/* ─── Focus ring system ───────────────────────────────────────────────────── */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+::selection {
+  background-color: rgba(99, 102, 241, 0.35);
+  color: #f4f4f5;
 }

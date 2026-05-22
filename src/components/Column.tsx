@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import clsx from 'clsx';
 import type { Column as ColumnType, Priority, Project, Status, Task } from '../types';
 import type { Epic } from '../../shared/types';
 import { TaskCard } from './TaskCard';
@@ -35,7 +34,6 @@ interface EpicGroupsProps {
 }
 
 function EpicGroups({ tasks, epics, onOpen, onEdit, onDelete, availableProjects }: EpicGroupsProps) {
-  // Build ordered groups: epics first (in definition order), then unassigned
   const epicIds = epics.map((e) => e.id);
   const groups: { epicId: string | null; tasks: Task[] }[] = [
     ...epicIds.map((id) => ({ epicId: id, tasks: tasks.filter((t) => t.epicId === id) })),
@@ -48,26 +46,27 @@ function EpicGroups({ tasks, epics, onOpen, onEdit, onDelete, availableProjects 
         const epic = group.epicId ? epics.find((e) => e.id === group.epicId) : null;
         return (
           <div key={group.epicId ?? '__none__'}>
-            {/* Epic label */}
             <div className="flex items-center gap-1.5 px-1 mb-1.5">
               {epic ? (
                 <>
                   <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: epic.color }}
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: epic.color, boxShadow: `0 0 4px ${epic.color}55` }}
                   />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: epic.color }}>
+                  <span
+                    style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: epic.color }}
+                  >
                     {epic.name}
                   </span>
-                  <span className="text-[10px] text-[#484f58]">· {group.tasks.length}</span>
+                  <span style={{ fontSize: '9px', color: '#52525b' }} className="font-mono">· {group.tasks.length}</span>
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-[#484f58]" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#484f58]">
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#3f3f46' }} />
+                  <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#52525b' }}>
                     No Epic
                   </span>
-                  <span className="text-[10px] text-[#484f58]">· {group.tasks.length}</span>
+                  <span style={{ fontSize: '9px', color: '#52525b' }} className="font-mono">· {group.tasks.length}</span>
                 </>
               )}
             </div>
@@ -91,11 +90,12 @@ function EpicGroups({ tasks, epics, onOpen, onEdit, onDelete, availableProjects 
   );
 }
 
-const accentMap: Record<Status, string> = {
-  todo: '#8b949e',
-  'in-progress': '#58a6ff',
-  'waiting-approval': '#e3b341',
-  done: '#3fb950',
+// Column accent: unique color per column status
+const accentMap: Record<Status, { color: string; bgDim: string; glow: string }> = {
+  'todo':             { color: '#8b5cf6', bgDim: 'rgba(139,92,246,0.08)', glow: 'rgba(139,92,246,0.15)' },
+  'in-progress':      { color: '#3b82f6', bgDim: 'rgba(59,130,246,0.08)', glow: 'rgba(59,130,246,0.15)' },
+  'waiting-approval': { color: '#f59e0b', bgDim: 'rgba(245,158,11,0.08)', glow: 'rgba(245,158,11,0.15)' },
+  'done':             { color: '#10b981', bgDim: 'rgba(16,185,129,0.08)', glow: 'rgba(16,185,129,0.15)' },
 };
 
 export function Column({
@@ -126,40 +126,64 @@ export function Column({
 
   return (
     <>
-      <div className="flex flex-col w-80 flex-shrink-0">
+      <div className="flex flex-col w-72 flex-shrink-0">
         {/* Column header */}
         <div
-          className="flex items-center justify-between px-3 py-2.5 rounded-t-lg border-t-2"
-          style={{ borderColor: accent, backgroundColor: '#161b22' }}
+          className="flex items-center justify-between px-3 py-2.5 rounded-t-lg"
+          style={{
+            background: '#111116',
+            borderTop: `1px solid rgba(255,255,255,0.06)`,
+            borderLeft: `2px solid ${accent.color}`,
+            borderRight: `1px solid rgba(255,255,255,0.06)`,
+            borderBottom: 'none',
+          }}
         >
           <div className="flex items-center gap-2">
-            <StatusIcon status={column.id} size={15} />
+            <StatusIcon status={column.id} size={13} />
             <span
-              className="text-sm font-semibold"
-              style={{ color: accent }}
+              className="text-xs font-semibold"
+              style={{ color: accent.color }}
             >
               {column.title}
             </span>
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#21262d] text-[10px] font-medium text-[#8b949e]">
+            <span
+              className="font-mono leading-none"
+              style={{
+                fontSize: '9px',
+                fontWeight: 600,
+                color: accent.color,
+                background: accent.bgDim,
+                border: `1px solid ${accent.color}33`,
+                borderRadius: '4px',
+                padding: '2px 5px',
+              }}
+            >
               {filteredTasks.length}
             </span>
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="text-[#8b949e] hover:text-[#e6edf3] transition-colors rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+            className="transition-colors rounded p-0.5 focus:outline-none"
+            style={{ color: '#52525b' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = accent.color; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#52525b'; }}
             aria-label={`Add task to ${column.title}`}
           >
-            <Plus size={15} />
+            <Plus size={13} />
           </button>
         </div>
 
         {/* Droppable task list */}
         <div
           ref={setNodeRef}
-          className={clsx(
-            'flex-1 min-h-[120px] rounded-b-lg border border-t-0 border-[#30363d] p-2 transition-colors',
-            isOver ? 'bg-[#1c2128]' : 'bg-[#161b22]'
-          )}
+          className="flex-1 min-h-[120px] rounded-b-lg p-2 transition-all duration-150"
+          style={{
+            background: isOver ? `rgba(99,102,241,0.04)` : '#111116',
+            borderLeft: `2px solid ${isOver ? accent.color : 'rgba(255,255,255,0.04)'}`,
+            borderRight: `1px solid rgba(255,255,255,0.06)`,
+            borderBottom: `1px solid rgba(255,255,255,0.06)`,
+            boxShadow: isOver ? `inset 0 0 24px ${accent.glow}` : 'none',
+          }}
         >
           <SortableContext
             items={filteredTasks.map((t) => t.id)}
@@ -192,7 +216,10 @@ export function Column({
           </SortableContext>
 
           {filteredTasks.length === 0 && (
-            <div className="flex items-center justify-center h-16 text-xs text-[#484f58]">
+            <div
+              className="flex items-center justify-center h-14"
+              style={{ fontSize: '11px', color: '#3f3f46' }}
+            >
               No tasks
             </div>
           )}

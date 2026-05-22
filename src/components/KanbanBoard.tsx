@@ -25,7 +25,7 @@ type FilterValue = Priority | 'all';
 const FILTERS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
+  { value: 'medium', label: 'Med' },
   { value: 'low', label: 'Low' },
 ];
 
@@ -131,9 +131,6 @@ export function KanbanBoard({
     }
   }
 
-  // Accent color for the header accent: use epic color if in epic mode, otherwise blue
-  const accentColor = mode === 'epic' && epicColor ? epicColor : '#58a6ff';
-
   // Guard: show initialization modal if the project has not been set up yet
   if (mode === 'project' && apiProject && !apiProject.initialized) {
     return (
@@ -145,29 +142,39 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="h-full bg-[#0d1117] flex flex-col">
+    <div className="h-full flex flex-col" style={{ background: '#09090b' }}>
       {/* Header */}
-      <header className="border-b border-[#30363d] bg-[#161b22] px-6 py-4 flex-shrink-0">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
+      <header
+        className="px-6 py-3 flex-shrink-0"
+        style={{
+          background: '#111116',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
           {/* Breadcrumb */}
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5" style={{ fontSize: '13px' }}>
             <button
               onClick={onNavigateHome}
-              className="flex items-center gap-1 text-[#8b949e] hover:text-[#e6edf3] transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] rounded px-1"
+              className="flex items-center gap-1 transition-colors focus:outline-none rounded px-1"
+              style={{ color: '#52525b' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#52525b'; }}
               aria-label="Go to home"
             >
-              <Home size={14} aria-hidden="true" />
+              <Home size={13} aria-hidden="true" />
               <span>Home</span>
             </button>
-            <ChevronRight size={13} className="text-[#484f58]" aria-hidden="true" />
+            <ChevronRight size={12} style={{ color: '#3f3f46' }} aria-hidden="true" />
             <span
-              className="font-semibold text-[#e6edf3] flex items-center gap-1.5"
+              className="font-semibold flex items-center gap-1.5"
+              style={{ color: '#f4f4f5' }}
               aria-current="page"
             >
               {mode === 'epic' && epicColor && (
                 <span
-                  className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: accentColor }}
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: epicColor, boxShadow: `0 0 6px ${epicColor}66` }}
                   aria-hidden="true"
                 />
               )}
@@ -176,18 +183,31 @@ export function KanbanBoard({
           </nav>
 
           {/* Filter chips */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5" role="group" aria-label="Filter by priority">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-1" role="group" aria-label="Filter by priority">
               {FILTERS.map((f) => (
                 <button
                   key={f.value}
                   onClick={() => setFilter(f.value)}
                   className={clsx(
-                    'px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                    filter === f.value
-                      ? 'bg-[#58a6ff] text-[#0d1117]'
-                      : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#30363d] border border-[#30363d]'
+                    'transition-all focus:outline-none font-medium',
                   )}
+                  style={{
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    ...(filter === f.value
+                      ? {
+                          background: 'rgba(99,102,241,0.15)',
+                          color: '#818cf8',
+                          border: '1px solid rgba(99,102,241,0.3)',
+                        }
+                      : {
+                          background: 'rgba(255,255,255,0.03)',
+                          color: '#71717a',
+                          border: '1px solid rgba(255,255,255,0.07)',
+                        }),
+                  }}
                   aria-pressed={filter === f.value}
                   aria-label={`Filter: ${f.label}`}
                 >
@@ -200,7 +220,15 @@ export function KanbanBoard({
                 <select
                   value={epicFilter}
                   onChange={(e) => { setEpicFilter(e.target.value); setGroupByEpic(false); }}
-                  className="bg-[#21262d] border border-[#30363d] rounded-md px-2 py-1 text-xs text-[#8b949e] hover:text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                  className="focus:outline-none transition-colors appearance-none cursor-pointer"
+                  style={{
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(255,255,255,0.03)',
+                    color: '#71717a',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                  }}
                   aria-label="Filter by epic"
                 >
                   <option value="all">All Epics</option>
@@ -212,16 +240,27 @@ export function KanbanBoard({
                 </select>
                 <button
                   onClick={() => { setGroupByEpic(v => !v); setEpicFilter('all'); }}
-                  className={clsx(
-                    'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]',
-                    groupByEpic
-                      ? 'bg-[#1f6feb33] text-[#58a6ff] border-[#58a6ff]'
-                      : 'bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] border-[#30363d]'
-                  )}
+                  className="flex items-center gap-1.5 transition-all focus:outline-none font-medium"
+                  style={{
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    ...(groupByEpic
+                      ? {
+                          background: 'rgba(99,102,241,0.15)',
+                          color: '#818cf8',
+                          border: '1px solid rgba(99,102,241,0.3)',
+                        }
+                      : {
+                          background: 'rgba(255,255,255,0.03)',
+                          color: '#71717a',
+                          border: '1px solid rgba(255,255,255,0.07)',
+                        }),
+                  }}
                   aria-pressed={groupByEpic}
                   title="Group tasks by epic"
                 >
-                  <Layers size={12} />
+                  <Layers size={11} />
                   Group
                 </button>
               </>
@@ -231,7 +270,7 @@ export function KanbanBoard({
       </header>
 
       {/* Board */}
-      <main className="flex-1 px-6 py-6 overflow-auto">
+      <main className="flex-1 px-6 py-5 overflow-auto">
         <div className="max-w-7xl mx-auto">
           <DndContext
             sensors={sensors}
@@ -261,7 +300,7 @@ export function KanbanBoard({
 
             <DragOverlay>
               {activeTask ? (
-                <div className="rotate-1 opacity-95">
+                <div style={{ transform: 'rotate(1.5deg)', opacity: 0.96 }}>
                   <TaskCard
                     task={activeTask}
                     onOpen={() => {}}
@@ -269,6 +308,7 @@ export function KanbanBoard({
                     onDelete={() => {}}
                     projects={projects}
                     epics={epics}
+                    isDragOverlay
                   />
                 </div>
               ) : null}

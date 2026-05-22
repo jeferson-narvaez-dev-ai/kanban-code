@@ -19,6 +19,42 @@ interface TaskModalProps {
   onSubmit: (data: Omit<Task, 'id' | 'createdAt'>) => void;
 }
 
+// Shared input style for form fields
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#09090b',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '6px',
+  padding: '7px 10px',
+  fontSize: '13px',
+  color: '#f4f4f5',
+  outline: 'none',
+  transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
+  fontFamily: 'inherit',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '9px',
+  fontWeight: 600,
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: '#71717a',
+  marginBottom: '6px',
+};
+
+function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={labelStyle}>
+        {label}
+        {required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 export function TaskModal({
   mode,
   boardMode = 'project',
@@ -115,7 +151,6 @@ export function TaskModal({
     const newMessages = [...chatMessages.filter(m => m.role !== 'tool'), userMsg];
     setChatMessages(prev => [...prev, userMsg]);
 
-    // Build context: current form state as task JSON
     const taskContext = JSON.stringify({
       id: task!.id,
       title,
@@ -178,7 +213,6 @@ Always respond in the same language as the user.`
           } else if (event === 'message') {
             const p = JSON.parse(data) as { content: string };
             setChatMessages(prev => [...prev, { role: 'assistant', content: p.content }]);
-            // After agent responds, refresh form fields from the API
             void refreshTaskFields();
           } else if (event === 'done') {
             setChatLoading(false);
@@ -196,51 +230,74 @@ Always respond in the same language as the user.`
 
   const showChat = mode === 'edit' && Boolean(projectId) && Boolean(task?.id) && agentMode !== 'manual';
 
+  const focusStyles = `
+    focus:border-[#6366f1] focus:ring-0
+  `;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-label={mode === 'create' ? 'Create task' : 'Edit task'}
     >
-      <div className={clsx(
-        'w-full mx-4 bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl',
-        showChat ? 'max-w-6xl flex max-h-[90vh]' : 'max-w-md max-h-[90vh]'
-      )}>
+      <div
+        className={clsx(
+          'w-full mx-4',
+          showChat ? 'max-w-5xl flex max-h-[90vh]' : 'max-w-md max-h-[90vh]'
+        )}
+        style={{
+          background: '#111116',
+          border: '1px solid rgba(255,255,255,0.09)',
+          borderRadius: '10px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)',
+        }}
+      >
         {/* Form column */}
         <div className={clsx('flex flex-col min-h-0', showChat ? 'flex-1 min-w-0' : '')}>
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d]">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[#e6edf3] font-semibold text-base">
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <h2 style={{ color: '#f4f4f5', fontWeight: 600, fontSize: '14px' }}>
                 {mode === 'create' ? 'New Task' : 'Edit Task'}
               </h2>
               {mode === 'edit' && task?.id && (
-                <span className="text-xs font-mono text-[#8b949e] bg-[#21262d] border border-[#30363d] rounded px-1.5 py-0.5">
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '10px',
+                    color: '#71717a',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                  }}
+                >
                   {task.id}
                 </span>
               )}
             </div>
             <button
               onClick={onClose}
-              className="text-[#8b949e] hover:text-[#e6edf3] transition-colors rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+              className="transition-colors rounded p-0.5 focus:outline-none"
+              style={{ color: '#52525b' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#52525b'; }}
               aria-label="Close modal"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Title */}
-            <div>
-              <label
-                htmlFor="task-title"
-                className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-              >
-                Title <span className="text-[#f85149]">*</span>
-              </label>
+            <FormField label="Title" required>
               <input
                 ref={titleRef}
                 id="task-title"
@@ -251,35 +308,55 @@ Always respond in the same language as the user.`
                   if (e.target.value.trim()) setTitleError(false);
                 }}
                 placeholder="Task title..."
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
+                className={focusStyles}
+                style={{
+                  ...inputStyle,
+                  ...(titleError ? { borderColor: 'rgba(239,68,68,0.5)' } : {}),
+                }}
+                onFocus={(e) => {
+                  (e.currentTarget as HTMLInputElement).style.borderColor = '#6366f1';
+                  (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                }}
+                onBlur={(e) => {
+                  (e.currentTarget as HTMLInputElement).style.borderColor = titleError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)';
+                  (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                }}
                 aria-required="true"
                 aria-invalid={titleError}
               />
               {titleError && (
-                <p className="text-[#f85149] text-xs mt-1" role="alert">
+                <p style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }} role="alert">
                   Title is required.
                 </p>
               )}
-            </div>
+            </FormField>
 
             {/* Description — write/preview tabs */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">
-                  Description
-                </label>
-                <div className="flex rounded-md overflow-hidden border border-[#30363d] text-[10px]">
+              <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
+                <label style={labelStyle}>Description</label>
+                <div
+                  className="flex overflow-hidden"
+                  style={{
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                  }}
+                >
                   {(['write', 'preview'] as const).map(tab => (
                     <button
                       key={tab}
                       type="button"
                       onClick={() => setDescriptionTab(tab)}
-                      className={clsx(
-                        'px-2.5 py-0.5 capitalize transition-colors',
-                        descriptionTab === tab
-                          ? 'bg-[#21262d] text-[#e6edf3]'
-                          : 'text-[#8b949e] hover:text-[#e6edf3]'
-                      )}
+                      style={{
+                        fontSize: '10px',
+                        padding: '3px 10px',
+                        textTransform: 'capitalize',
+                        fontWeight: 500,
+                        transition: 'all 0.1s ease',
+                        ...(descriptionTab === tab
+                          ? { background: 'rgba(99,102,241,0.15)', color: '#818cf8' }
+                          : { background: 'transparent', color: '#71717a' }),
+                      }}
                     >
                       {tab}
                     </button>
@@ -293,73 +370,112 @@ Always respond in the same language as the user.`
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Supports markdown..."
                   rows={6}
-                  className="w-full bg-[#0d1117] text-[#e6edf3] text-sm border border-[#30363d] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#58a6ff] focus:border-[#58a6ff] placeholder-[#484f58] resize-y font-mono"
+                  style={{
+                    ...inputStyle,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '12px',
+                    resize: 'vertical',
+                    lineHeight: 1.6,
+                  }}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLTextAreaElement).style.borderColor = '#6366f1';
+                    (e.currentTarget as HTMLTextAreaElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                    (e.currentTarget as HTMLTextAreaElement).style.boxShadow = 'none';
+                  }}
                 />
               ) : (
-                <div className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3]">
+                <div
+                  className="overflow-y-auto"
+                  style={{
+                    minHeight: '120px',
+                    maxHeight: '280px',
+                    background: '#09090b',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                  }}
+                >
                   {/* User story callout */}
                   {(role || goal || value) && (
-                    <div className="bg-[#0d2d6e]/30 border border-[#58a6ff]/30 rounded-md px-3 py-2 mb-3 text-sm leading-relaxed">
-                      {role && <>As a <strong className="text-[#a5d6ff]">{role}</strong>, </>}
-                      {goal && <>I want to <strong className="text-[#a5d6ff]">{goal}</strong>, </>}
-                      {value && <>so that <strong className="text-[#a5d6ff]">{value}</strong>.</>}
+                    <div
+                      className="rounded-md mb-3"
+                      style={{
+                        background: 'rgba(99,102,241,0.08)',
+                        border: '1px solid rgba(99,102,241,0.2)',
+                        padding: '10px 12px',
+                        fontSize: '13px',
+                        lineHeight: 1.6,
+                        color: '#a1a1aa',
+                      }}
+                    >
+                      {role && <>As a <strong style={{ color: '#818cf8' }}>{role}</strong>, </>}
+                      {goal && <>I want to <strong style={{ color: '#818cf8' }}>{goal}</strong>, </>}
+                      {value && <>so that <strong style={{ color: '#818cf8' }}>{value}</strong>.</>}
                     </div>
                   )}
                   {description?.trim() ? (
                     <div className="prose prose-invert prose-sm max-w-none
-                      prose-headings:text-[#e6edf3] prose-headings:font-semibold prose-headings:border-b prose-headings:border-[#30363d] prose-headings:pb-1
-                      prose-p:text-[#c9d1d9] prose-p:leading-relaxed
-                      prose-a:text-[#58a6ff] prose-a:no-underline hover:prose-a:underline
-                      prose-strong:text-[#e6edf3]
-                      prose-code:text-[#f0883e] prose-code:bg-[#21262d] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
-                      prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-[#30363d] prose-pre:rounded-md prose-pre:text-xs
-                      prose-li:text-[#c9d1d9]
-                      prose-blockquote:border-l-[#30363d] prose-blockquote:text-[#8b949e]
-                      prose-hr:border-[#30363d]">
+                      prose-headings:text-[#f4f4f5] prose-headings:font-semibold prose-headings:border-b prose-headings:border-white/5 prose-headings:pb-1
+                      prose-p:text-[#a1a1aa] prose-p:leading-relaxed
+                      prose-a:text-[#818cf8] prose-a:no-underline hover:prose-a:underline
+                      prose-strong:text-[#f4f4f5]
+                      prose-code:text-[#f59e0b] prose-code:bg-white/5 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-code:font-mono
+                      prose-pre:bg-[#09090b] prose-pre:border prose-pre:border-white/6 prose-pre:rounded-md prose-pre:text-xs
+                      prose-li:text-[#a1a1aa]
+                      prose-blockquote:border-l-white/10 prose-blockquote:text-[#71717a]
+                      prose-hr:border-white/6">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
                     </div>
                   ) : (
-                    <span className="text-[#484f58] italic text-xs">Nothing to preview</span>
+                    <span style={{ color: '#3f3f46', fontStyle: 'italic', fontSize: '12px' }}>Nothing to preview</span>
                   )}
                 </div>
               )}
             </div>
 
             {/* Priority */}
-            <div>
-              <label
-                htmlFor="task-priority"
-                className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-              >
-                Priority
-              </label>
+            <FormField label="Priority">
               <select
                 id="task-priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' }}
+                onFocus={(e) => {
+                  (e.currentTarget as HTMLSelectElement).style.borderColor = '#6366f1';
+                  (e.currentTarget as HTMLSelectElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                }}
+                onBlur={(e) => {
+                  (e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                  (e.currentTarget as HTMLSelectElement).style.boxShadow = 'none';
+                }}
                 aria-label="Task priority"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
-            </div>
+            </FormField>
 
             {/* Epic */}
             {epics.length > 0 && (
-              <div>
-                <label
-                  htmlFor="task-epic"
-                  className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-                >
-                  Epic
-                </label>
+              <FormField label="Epic">
                 <select
                   id="task-epic"
                   value={epicId}
                   onChange={(e) => setEpicId(e.target.value)}
-                  className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                  style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' }}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLSelectElement).style.borderColor = '#6366f1';
+                    (e.currentTarget as HTMLSelectElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                    (e.currentTarget as HTMLSelectElement).style.boxShadow = 'none';
+                  }}
                   aria-label="Linked epic"
                 >
                   <option value="">None</option>
@@ -369,65 +485,61 @@ Always respond in the same language as the user.`
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             )}
 
             {/* User Story */}
             <div>
-              <p className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider">
-                User Story
-              </p>
+              <p style={labelStyle}>User Story</p>
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#484f58] w-16 flex-shrink-0">As a</span>
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="developer"
-                    className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
-                    aria-label="Role"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#484f58] w-16 flex-shrink-0">I want to</span>
-                  <input
-                    type="text"
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    placeholder="configure authentication"
-                    className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
-                    aria-label="Goal"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#484f58] w-16 flex-shrink-0">So that</span>
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="users can log in securely"
-                    className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-1.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
-                    aria-label="Value"
-                  />
-                </div>
+                {[
+                  { prefix: 'As a', val: role, set: setRole, placeholder: 'developer', label: 'Role' },
+                  { prefix: 'I want to', val: goal, set: setGoal, placeholder: 'configure authentication', label: 'Goal' },
+                  { prefix: 'So that', val: value, set: setValue, placeholder: 'users can log in securely', label: 'Value' },
+                ].map(({ prefix, val, set, placeholder, label }) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <span
+                      style={{ fontSize: '11px', color: '#52525b', width: '54px', flexShrink: 0 }}
+                    >
+                      {prefix}
+                    </span>
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => set(e.target.value)}
+                      placeholder={placeholder}
+                      style={{ ...inputStyle, padding: '5px 10px', fontSize: '12px' }}
+                      onFocus={(e) => {
+                        (e.currentTarget as HTMLInputElement).style.borderColor = '#6366f1';
+                        (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                      }}
+                      onBlur={(e) => {
+                        (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                        (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                      }}
+                      aria-label={label}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Project (epic mode only) */}
             {boardMode === 'epic' && (
-              <div>
-                <label
-                  htmlFor="task-project"
-                  className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-                >
-                  Project
-                </label>
+              <FormField label="Project">
                 <select
                   id="task-project"
                   value={formProjectId}
                   onChange={(e) => setFormProjectId(e.target.value)}
-                  className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors appearance-none cursor-pointer"
+                  style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' }}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLSelectElement).style.borderColor = '#6366f1';
+                    (e.currentTarget as HTMLSelectElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                    (e.currentTarget as HTMLSelectElement).style.boxShadow = 'none';
+                  }}
                   aria-label="Linked project"
                 >
                   <option value="">None (general)</option>
@@ -437,40 +549,77 @@ Always respond in the same language as the user.`
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             )}
 
             {/* Tags */}
-            <div>
-              <label
-                htmlFor="task-tags"
-                className="block text-xs font-medium text-[#8b949e] mb-1.5 uppercase tracking-wider"
-              >
-                Tags
-              </label>
+            <FormField label="Tags">
               <input
                 id="task-tags"
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="frontend, backend, bug..."
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff] transition-colors"
+                style={inputStyle}
+                onFocus={(e) => {
+                  (e.currentTarget as HTMLInputElement).style.borderColor = '#6366f1';
+                  (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)';
+                }}
+                onBlur={(e) => {
+                  (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                  (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                }}
               />
-              <p className="text-[#484f58] text-xs mt-1">Comma-separated</p>
-            </div>
+              <p style={{ color: '#52525b', fontSize: '10px', marginTop: '4px' }}>Comma-separated</p>
+            </FormField>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#30363d]">
+            <div
+              className="flex items-center justify-end gap-2 pt-2"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm text-[#8b949e] hover:text-[#e6edf3] bg-transparent border border-[#30363d] hover:border-[#8b949e] rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                className="transition-colors focus:outline-none"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  color: '#71717a',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#71717a';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-[#238636] hover:bg-[#2ea043] border border-[#2ea043]/50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#3fb950]"
+                className="transition-colors focus:outline-none"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  color: 'white',
+                  background: '#6366f1',
+                  border: '1px solid rgba(99,102,241,0.5)',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = '#818cf8';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = '#6366f1';
+                }}
               >
                 {mode === 'create' ? 'Create Task' : 'Save Changes'}
               </button>
@@ -480,38 +629,95 @@ Always respond in the same language as the user.`
 
         {/* Refinement chat panel (edit mode only) */}
         {showChat && (
-          <div className="w-[460px] flex-shrink-0 flex flex-col border-l border-[#30363d] overflow-hidden">
+          <div
+            className="w-[440px] flex-shrink-0 flex flex-col overflow-hidden"
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.07)' }}
+          >
             {/* Chat header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]">
-              <Bot size={14} className="text-[#58a6ff]" />
-              <span className="text-xs font-semibold text-[#e6edf3]">Refine with Agent</span>
+            <div
+              className="flex items-center gap-2 px-4 py-3"
+              style={{
+                borderBottom: '1px solid rgba(255,255,255,0.07)',
+                background: '#0d0d12',
+              }}
+            >
+              <Bot size={13} style={{ color: '#818cf8' }} />
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#f4f4f5' }}>Refine with Agent</span>
+              <span
+                className="ml-auto font-mono"
+                style={{
+                  fontSize: '9px',
+                  color: '#52525b',
+                  background: 'rgba(99,102,241,0.08)',
+                  border: '1px solid rgba(99,102,241,0.15)',
+                  borderRadius: '4px',
+                  padding: '1px 5px',
+                }}
+              >
+                AI
+              </span>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-0">
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-0" style={{ background: '#0d0d12' }}>
               {chatMessages.length === 0 && (
-                <p className="text-xs text-[#484f58] text-center pt-4">
+                <p style={{ fontSize: '11px', color: '#3f3f46', textAlign: 'center', paddingTop: '16px' }}>
                   Ask the agent to refine this story — it will update the fields automatically.
                 </p>
               )}
               {chatMessages.map((msg, i) => (
                 <div key={i} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                   {msg.role === 'tool' ? (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#2d2a00] border border-[#4d4400] text-[#e3b341] text-[10px]">
-                      <Wrench size={10} />
-                      <span className="font-medium">{msg.toolName}</span>
+                    <div
+                      className="flex items-center gap-1.5"
+                      style={{
+                        fontSize: '10px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(245,158,11,0.08)',
+                        border: '1px solid rgba(245,158,11,0.2)',
+                        color: '#f59e0b',
+                      }}
+                    >
+                      <Wrench size={9} />
+                      <span className="font-medium font-mono">{msg.toolName}</span>
                     </div>
                   ) : (
-                    <div className={clsx(
-                      'max-w-[90%] px-2.5 py-1.5 rounded-xl text-xs leading-relaxed break-words overflow-x-hidden',
-                      msg.role === 'user'
-                        ? 'bg-[#1f6feb] text-white rounded-br-sm'
-                        : 'bg-[#21262d] text-[#e6edf3] border border-[#30363d] rounded-bl-sm'
-                    )}>
+                    <div
+                      className="max-w-[90%] break-words overflow-x-hidden"
+                      style={{
+                        fontSize: '12px',
+                        lineHeight: 1.55,
+                        padding: '7px 11px',
+                        borderRadius: msg.role === 'user' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
+                        ...(msg.role === 'user'
+                          ? {
+                              background: '#6366f1',
+                              color: 'white',
+                            }
+                          : {
+                              background: '#18181f',
+                              color: '#d4d4d8',
+                              border: '1px solid rgba(255,255,255,0.07)',
+                            }),
+                      }}
+                    >
                       {msg.role === 'assistant' ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                           p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-                          code: ({ children }) => <code className="bg-[#161b22] px-1 rounded text-[10px] font-mono break-all">{children}</code>,
+                          code: ({ children }) => (
+                            <code
+                              className="font-mono break-all"
+                              style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                padding: '1px 4px',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                              }}
+                            >
+                              {children}
+                            </code>
+                          ),
                         }}>{msg.content}</ReactMarkdown>
                       ) : msg.content}
                     </div>
@@ -520,10 +726,21 @@ Always respond in the same language as the user.`
               ))}
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className="px-2.5 py-1.5 rounded-xl rounded-bl-sm bg-[#21262d] border border-[#30363d]">
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px 10px 10px 3px',
+                      background: '#18181f',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                    }}
+                  >
                     <span className="flex gap-1 items-center h-3">
                       {[0, 150, 300].map(d => (
-                        <span key={d} className="w-1 h-1 rounded-full bg-[#8b949e] animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                        <span
+                          key={d}
+                          className="w-1 h-1 rounded-full animate-bounce"
+                          style={{ background: '#71717a', animationDelay: `${d}ms` }}
+                        />
                       ))}
                     </span>
                   </div>
@@ -533,7 +750,13 @@ Always respond in the same language as the user.`
             </div>
 
             {/* Input */}
-            <div className="px-3 py-2 border-t border-[#30363d] bg-[#0d1117]">
+            <div
+              className="px-3 py-2.5"
+              style={{
+                borderTop: '1px solid rgba(255,255,255,0.07)',
+                background: '#0d0d12',
+              }}
+            >
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -542,15 +765,48 @@ Always respond in the same language as the user.`
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendChatMessage(); } }}
                   disabled={chatLoading}
                   placeholder="Refine this story..."
-                  className="flex-1 bg-[#161b22] border border-[#30363d] rounded-md px-2.5 py-1.5 text-xs text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:ring-1 focus:ring-[#58a6ff] disabled:opacity-50"
+                  style={{
+                    flex: 1,
+                    background: '#18181f',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: '6px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    color: '#f4f4f5',
+                    outline: 'none',
+                    opacity: chatLoading ? 0.5 : 1,
+                  }}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLInputElement).style.borderColor = '#6366f1';
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => void sendChatMessage()}
                   disabled={chatLoading || !chatInput.trim()}
-                  className="flex items-center justify-center w-7 h-7 rounded-md bg-[#1f6feb] text-white disabled:opacity-40 hover:bg-[#388bfd] transition-colors"
+                  className="flex items-center justify-center transition-colors focus:outline-none"
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '6px',
+                    background: '#6366f1',
+                    color: 'white',
+                    opacity: chatLoading || !chatInput.trim() ? 0.4 : 1,
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!chatLoading && chatInput.trim()) {
+                      (e.currentTarget as HTMLButtonElement).style.background = '#818cf8';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = '#6366f1';
+                  }}
                 >
-                  <Send size={12} />
+                  <Send size={11} />
                 </button>
               </div>
             </div>

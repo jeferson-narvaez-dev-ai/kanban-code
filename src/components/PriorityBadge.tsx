@@ -1,33 +1,44 @@
 import type { Priority } from '../types';
-import clsx from 'clsx';
 
 interface PriorityBadgeProps {
   priority: Priority;
 }
 
-const config: Record<Priority, { label: string; classes: string }> = {
+const config: Record<Priority, { label: string; color: string; bg: string; border: string }> = {
   high: {
     label: 'HIGH',
-    classes: 'bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30',
+    color: '#ef4444',
+    bg: 'rgba(239,68,68,0.12)',
+    border: 'rgba(239,68,68,0.25)',
   },
   medium: {
     label: 'MED',
-    classes: 'bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30',
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.25)',
   },
   low: {
     label: 'LOW',
-    classes: 'bg-[#8b949e]/20 text-[#8b949e] border border-[#8b949e]/30',
+    color: '#71717a',
+    bg: 'rgba(113,113,122,0.1)',
+    border: 'rgba(113,113,122,0.2)',
   },
 };
 
 export function PriorityBadge({ priority }: PriorityBadgeProps) {
-  const { label, classes } = config[priority];
+  const { label, color, bg, border } = config[priority];
   return (
     <span
-      className={clsx(
-        'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider',
-        classes
-      )}
+      className="inline-flex items-center font-mono font-semibold"
+      style={{
+        fontSize: '9px',
+        letterSpacing: '0.06em',
+        padding: '2px 5px',
+        borderRadius: '9999px',
+        color,
+        background: bg,
+        border: `1px solid ${border}`,
+      }}
     >
       {label}
     </span>

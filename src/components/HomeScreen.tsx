@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderOpen, Plus, Layers } from 'lucide-react';
+import { FolderOpen, Plus, Layers, Zap } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { Epic, Project } from '../types';
 import { CreateEpicModal } from './CreateEpicModal';
@@ -39,38 +39,57 @@ function EpicCard({
   return (
     <button
       onClick={onClick}
-      className="text-left bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden hover:bg-[#1c2128] hover:border-[#444c56] transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] group"
+      className="text-left rounded-lg overflow-hidden transition-all duration-150 focus:outline-none group"
+      style={{
+        background: '#111116',
+        border: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = '#18181f';
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)';
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.09)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = '#111116';
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.07)';
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+      }}
       aria-label={`Open epic: ${epic.name}`}
     >
       {/* Color accent bar */}
       <div
-        className="h-1 w-full"
-        style={{ backgroundColor: epic.color }}
+        className="h-0.5 w-full"
+        style={{ backgroundColor: epic.color, opacity: 0.85 }}
         aria-hidden="true"
       />
       <div className="p-4">
         <div className="flex items-start gap-2.5">
           <div
-            className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
-            style={{ backgroundColor: epic.color }}
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1"
+            style={{ backgroundColor: epic.color, boxShadow: `0 0 8px ${epic.color}55` }}
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#e6edf3] truncate group-hover:text-white transition-colors">
+            <p className="text-sm font-semibold text-[#f4f4f5] truncate">
               {epic.name}
             </p>
             {epic.description && (
-              <p className="text-xs text-[#8b949e] mt-0.5 line-clamp-2 leading-relaxed">
+              <p className="text-xs text-[#71717a] mt-0.5 line-clamp-2 leading-relaxed">
                 {epic.description}
               </p>
             )}
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-3 text-[10px] text-[#8b949e]">
-          <span>{taskCount} {taskCount === 1 ? 'task' : 'tasks'}</span>
-          <span>·</span>
-          <span>{epic.projectIds.length} {epic.projectIds.length === 1 ? 'project' : 'projects'}</span>
-          <span className="ml-auto">{formatDate(epic.createdAt)}</span>
+        <div className="mt-3 flex items-center gap-3" style={{ fontSize: '10px', color: '#71717a' }}>
+          <span className="font-mono">{taskCount}</span>
+          <span className="text-[#3f3f46]">{taskCount === 1 ? 'task' : 'tasks'}</span>
+          <span className="text-[#3f3f46]">·</span>
+          <span className="font-mono">{epic.projectIds.length}</span>
+          <span className="text-[#3f3f46]">{epic.projectIds.length === 1 ? 'project' : 'projects'}</span>
+          <span className="ml-auto text-[#52525b]">{formatDate(epic.createdAt)}</span>
         </div>
       </div>
     </button>
@@ -94,22 +113,43 @@ function ProjectCard({
   return (
     <button
       onClick={onClick}
-      className="text-left bg-[#161b22] border border-[#30363d] rounded-lg p-4 hover:bg-[#1c2128] hover:border-[#444c56] transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff] group"
+      className="text-left rounded-lg p-4 transition-all duration-150 focus:outline-none group"
+      style={{
+        background: '#111116',
+        border: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = '#18181f';
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)';
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.09)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = '#111116';
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.07)';
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+      }}
       aria-label={`Open project: ${project.name}`}
     >
       <div className="flex items-center gap-2.5">
-        <FolderOpen
-          size={16}
-          className="text-[#58a6ff] flex-shrink-0"
-          aria-hidden="true"
-        />
-        <p className="text-sm font-semibold text-[#e6edf3] truncate group-hover:text-white transition-colors">
+        <div
+          className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}
+        >
+          <FolderOpen size={13} style={{ color: '#818cf8' }} aria-hidden="true" />
+        </div>
+        <p className="text-sm font-semibold text-[#f4f4f5] truncate">
           {project.name}
         </p>
       </div>
-      <div className="mt-3 flex items-center justify-between text-[10px] text-[#8b949e]">
-        <span>{taskCount} {taskCount === 1 ? 'task' : 'tasks'}</span>
-        <span>{formatDate(project.createdAt)}</span>
+      <div className="mt-3 flex items-center justify-between" style={{ fontSize: '10px', color: '#71717a' }}>
+        <span>
+          <span className="font-mono text-[#a1a1aa]">{taskCount}</span>
+          <span className="ml-1 text-[#52525b]">{taskCount === 1 ? 'task' : 'tasks'}</span>
+        </span>
+        <span className="text-[#52525b]">{formatDate(project.createdAt)}</span>
       </div>
     </button>
   );
@@ -131,13 +171,41 @@ export function HomeScreen({
   }
 
   return (
-    <div className="h-screen bg-[#0d1117] flex flex-col">
+    <div className="h-screen flex flex-col" style={{ background: '#09090b' }}>
       {/* Header */}
-      <header className="border-b border-[#30363d] bg-[#161b22] px-6 py-4 flex-shrink-0">
+      <header
+        className="px-6 py-3 flex-shrink-0"
+        style={{
+          background: '#111116',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Layers size={22} className="text-[#58a6ff]" aria-hidden="true" />
-            <span className="text-[#e6edf3] font-semibold text-lg tracking-tight">Kanban</span>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-7 h-7 rounded-md flex items-center justify-center"
+              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)' }}
+            >
+              <Zap size={14} style={{ color: '#818cf8' }} aria-hidden="true" />
+            </div>
+            <span className="font-semibold text-[#f4f4f5] tracking-tight" style={{ fontSize: '15px' }}>
+              Kanban
+            </span>
+            <span
+              className="font-mono"
+              style={{
+                fontSize: '9px',
+                letterSpacing: '0.1em',
+                color: '#52525b',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+                textTransform: 'uppercase',
+              }}
+            >
+              v2
+            </span>
           </div>
         </div>
       </header>
@@ -149,27 +217,74 @@ export function HomeScreen({
           {/* Epics section */}
           <section aria-labelledby="epics-heading">
             <div className="flex items-center justify-between mb-4">
-              <h2
-                id="epics-heading"
-                className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest"
-              >
-                Epics
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <Layers size={13} style={{ color: '#52525b' }} aria-hidden="true" />
+                <h2
+                  id="epics-heading"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: '#71717a',
+                  }}
+                >
+                  Epics
+                </h2>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '9px',
+                    color: '#52525b',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '4px',
+                    padding: '1px 5px',
+                  }}
+                >
+                  {epics.length}
+                </span>
+              </div>
               <button
                 onClick={() => setShowCreateEpic(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#e6edf3] bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] hover:border-[#8b949e] rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                className="flex items-center gap-1.5 transition-colors focus:outline-none"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#a1a1aa',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#f4f4f5';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                }}
                 aria-label="Create new epic"
               >
-                <Plus size={13} aria-hidden="true" />
+                <Plus size={12} aria-hidden="true" />
                 New Epic
               </button>
             </div>
 
             {epics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-                <Layers size={36} className="text-[#30363d] mb-3" aria-hidden="true" />
-                <p className="text-[#8b949e] text-sm">No epics yet.</p>
-                <p className="text-[#484f58] text-xs mt-1">Create one to group related tasks across projects.</p>
+              <div
+                className="flex flex-col items-center justify-center py-12 text-center rounded-xl"
+                style={{
+                  background: '#111116',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <Layers size={28} style={{ color: '#3f3f46', marginBottom: '10px' }} aria-hidden="true" />
+                <p style={{ color: '#71717a', fontSize: '13px' }}>No epics yet</p>
+                <p style={{ color: '#52525b', fontSize: '11px', marginTop: '4px' }}>
+                  Create one to group related tasks across projects
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -187,27 +302,74 @@ export function HomeScreen({
           {/* Projects section */}
           <section aria-labelledby="projects-heading">
             <div className="flex items-center justify-between mb-4">
-              <h2
-                id="projects-heading"
-                className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest"
-              >
-                Projects
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <FolderOpen size={13} style={{ color: '#52525b' }} aria-hidden="true" />
+                <h2
+                  id="projects-heading"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: '#71717a',
+                  }}
+                >
+                  Projects
+                </h2>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '9px',
+                    color: '#52525b',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '4px',
+                    padding: '1px 5px',
+                  }}
+                >
+                  {projects.length}
+                </span>
+              </div>
               <button
                 onClick={onOpenFolder}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#e6edf3] bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] hover:border-[#8b949e] rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+                className="flex items-center gap-1.5 transition-colors focus:outline-none"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#a1a1aa',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#f4f4f5';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                }}
                 aria-label="Open a folder to add a project"
               >
-                <Plus size={13} aria-hidden="true" />
+                <Plus size={12} aria-hidden="true" />
                 Open Folder
               </button>
             </div>
 
             {projects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-                <FolderOpen size={36} className="text-[#30363d] mb-3" aria-hidden="true" />
-                <p className="text-[#8b949e] text-sm">No projects yet.</p>
-                <p className="text-[#484f58] text-xs mt-1">Open a local folder to start tracking tasks.</p>
+              <div
+                className="flex flex-col items-center justify-center py-12 text-center rounded-xl"
+                style={{
+                  background: '#111116',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <FolderOpen size={28} style={{ color: '#3f3f46', marginBottom: '10px' }} aria-hidden="true" />
+                <p style={{ color: '#71717a', fontSize: '13px' }}>No projects yet</p>
+                <p style={{ color: '#52525b', fontSize: '11px', marginTop: '4px' }}>
+                  Open a local folder to start tracking tasks
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

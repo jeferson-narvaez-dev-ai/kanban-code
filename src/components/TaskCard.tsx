@@ -2,7 +2,6 @@ import { useRef, useState, useEffect } from 'react';
 import { MoreVertical, FolderOpen } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import clsx from 'clsx';
 import type { Project, Task } from '../types';
 import type { Epic } from '../../shared/types';
 import { PriorityBadge } from './PriorityBadge';
@@ -15,6 +14,7 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   projects?: Project[];
   epics?: Epic[];
+  isDragOverlay?: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -22,7 +22,7 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics = [] }: TaskCardProps) {
+export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics = [], isDragOverlay = false }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -38,6 +38,7 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,15 +60,43 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
     ? epics.find((e) => e.id === task.epicId)
     : undefined;
 
+  const cardStyle: React.CSSProperties = {
+    background: '#18181f',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    cursor: isDragOverlay ? 'grabbing' : 'grab',
+    userSelect: 'none',
+    transition: isDragging ? 'none' : 'box-shadow 0.12s ease, transform 0.12s ease, border-color 0.12s ease, background 0.12s ease',
+    ...(isDragging
+      ? {
+          opacity: 0.3,
+          boxShadow: 'none',
+        }
+      : isDragOverlay
+      ? {
+          boxShadow: '0 0 0 2px #6366f1, 0 8px 24px rgba(99,102,241,0.3)',
+          background: '#1e1e28',
+          borderColor: 'rgba(99,102,241,0.4)',
+        }
+      : isHovered
+      ? {
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)',
+          background: '#1e1e28',
+          borderColor: 'rgba(255,255,255,0.11)',
+          transform: 'translateY(-1px)',
+        }
+      : {
+          boxShadow: '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+        }),
+  };
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className={clsx(
-        'group relative bg-[#21262d] border border-[#30363d] rounded-lg p-3 cursor-grab active:cursor-grabbing select-none',
-        'hover:bg-[#262c36] hover:border-[#444c56] transition-colors',
-        isDragging && 'opacity-50 ring-2 ring-[#58a6ff]'
-      )}
+      style={{ ...style, ...cardStyle }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       {...attributes}
       {...listeners}
       onClick={() => onOpen(task)}
@@ -76,14 +105,23 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
       {/* Top row: status icon + title + menu */}
       <div className="flex items-start gap-2">
         <div className="mt-0.5 flex-shrink-0">
-          <StatusIcon status={task.status} size={14} />
+          <StatusIcon status={task.status} size={13} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-mono text-[#484f58] leading-none mb-0.5">{task.id}</p>
-          <span className="text-sm font-medium text-[#e6edf3] leading-snug break-words">
+          <p
+            className="font-mono leading-none mb-0.5"
+            style={{ fontSize: '9px', color: '#52525b' }}
+          >
+            {task.id}
+          </p>
+          <span
+            className="font-medium leading-snug break-words"
+            style={{ fontSize: '13px', color: '#f4f4f5' }}
+          >
             {task.title}
           </span>
         </div>
+
         {/* 3-dot menu — stop drag propagation */}
         <div
           ref={menuRef}
@@ -96,16 +134,29 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
               setMenuOpen((v) => !v);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-0.5 text-[#484f58] hover:text-[#8b949e] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded focus:outline-none focus:ring-2 focus:ring-[#58a6ff]"
+            className="p-0.5 rounded transition-all focus:outline-none"
+            style={{
+              color: '#52525b',
+              opacity: isHovered || menuOpen ? 1 : 0,
+              transition: 'opacity 0.1s ease, color 0.1s ease',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#52525b'; }}
             aria-label="Task options"
             aria-haspopup="true"
             aria-expanded={menuOpen}
           >
-            <MoreVertical size={14} />
+            <MoreVertical size={13} />
           </button>
           {menuOpen && (
             <div
-              className="absolute right-0 top-6 z-20 w-32 bg-[#161b22] border border-[#30363d] rounded-md shadow-lg overflow-hidden"
+              className="absolute right-0 top-6 z-20 w-28 overflow-hidden"
+              style={{
+                background: '#1e1e28',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '6px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              }}
               role="menu"
             >
               <button
@@ -114,7 +165,10 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
                   setMenuOpen(false);
                   onEdit(task);
                 }}
-                className="w-full text-left px-3 py-2 text-xs text-[#e6edf3] hover:bg-[#21262d] transition-colors focus:outline-none focus:bg-[#21262d]"
+                className="w-full text-left px-3 py-2 transition-colors focus:outline-none"
+                style={{ fontSize: '12px', color: '#a1a1aa' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLButtonElement).style.color = '#f4f4f5'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#a1a1aa'; }}
                 role="menuitem"
               >
                 Edit
@@ -125,7 +179,10 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
                   setMenuOpen(false);
                   onDelete(task.id);
                 }}
-                className="w-full text-left px-3 py-2 text-xs text-[#f85149] hover:bg-[#21262d] transition-colors focus:outline-none focus:bg-[#21262d]"
+                className="w-full text-left px-3 py-2 transition-colors focus:outline-none"
+                style={{ fontSize: '12px', color: '#ef4444' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 role="menuitem"
               >
                 Delete
@@ -137,7 +194,10 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
 
       {/* Description */}
       {task.description && (
-        <p className="mt-1.5 ml-5 text-xs text-[#8b949e] line-clamp-2 leading-relaxed">
+        <p
+          className="mt-1.5 ml-5 line-clamp-2 leading-relaxed"
+          style={{ fontSize: '11px', color: '#71717a' }}
+        >
           {task.description}
         </p>
       )}
@@ -146,11 +206,14 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
       {linkedEpic && (
         <div className="mt-1.5 ml-5">
           <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+            className="inline-flex items-center gap-1 font-medium"
             style={{
-              backgroundColor: `${linkedEpic.color}22`,
+              fontSize: '10px',
+              padding: '2px 6px',
+              borderRadius: '9999px',
+              backgroundColor: `${linkedEpic.color}18`,
               color: linkedEpic.color,
-              border: `1px solid ${linkedEpic.color}44`,
+              border: `1px solid ${linkedEpic.color}33`,
             }}
             aria-label={`Epic: ${linkedEpic.name}`}
           >
@@ -169,22 +232,41 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
         <PriorityBadge priority={task.priority} />
         {linkedProject && (
           <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[#0d1117] text-[#8b949e] border border-[#30363d]"
+            className="inline-flex items-center gap-1"
+            style={{
+              fontSize: '10px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              background: 'rgba(255,255,255,0.04)',
+              color: '#71717a',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}
             aria-label={`Project: ${linkedProject.name}`}
           >
-            <FolderOpen size={10} aria-hidden="true" />
+            <FolderOpen size={9} aria-hidden="true" />
             {linkedProject.name}
           </span>
         )}
         {task.tags?.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-[#0d1117] text-[#8b949e] border border-[#30363d]"
+            className="inline-flex items-center"
+            style={{
+              fontSize: '10px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              background: 'rgba(255,255,255,0.04)',
+              color: '#71717a',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}
           >
             {tag}
           </span>
         ))}
-        <span className="ml-auto text-[10px] text-[#484f58] whitespace-nowrap">
+        <span
+          className="ml-auto font-mono whitespace-nowrap"
+          style={{ fontSize: '9px', color: '#52525b' }}
+        >
           {formatDate(task.createdAt)}
         </span>
       </div>

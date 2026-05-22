@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import multer from 'multer';
 import { config } from '../config';
 
 const router = Router({ mergeParams: true });
@@ -100,6 +101,33 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: `Cannot create: ${err instanceof Error ? err.message : String(err)}` });
   }
+});
+
+// POST /api/projects/:projectId/files/upload
+// Accepts multipart/form-data and saves files to references/
+const upload = multer({ storage: multer.memoryStorage() });
+router.post('/upload', upload.array('file'), async (req: Request, res: Response) => {
+  const projectId = String(req.params['projectId']);
+  const root = resolveProjectRoot(projectId);
+  const referencesDir = path.join(root, 'references');
+
+  await fs.mkdir(referencesDir, { recursive: true });
+
+  const files = req.files as Express.Multer.File[] | undefined;
+  if (!files || files.length === 0) {
+    res.status(400).json({ error: 'No files uploaded' });
+    return;
+  }
+
+  const savedFiles: string[] = [];
+  for (const file of files) {
+    const safeName = path.basename(file.originalname);
+    const dest = path.join(referencesDir, safeName);
+    await fs.writeFile(dest, file.buffer);
+    savedFiles.push(`references/${safeName}`);
+  }
+
+  res.json({ uploaded: savedFiles });
 });
 
 // DELETE /api/projects/:projectId/files?path=

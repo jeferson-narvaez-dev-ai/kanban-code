@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Pencil, FileText } from 'lucide-react';
+import { Eye, Pencil, Upload } from 'lucide-react';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -181,6 +181,8 @@ function FileView({ projectId, filePath }: FileViewProps) {
 
 export function DocsView({ projectId }: Props) {
   const [selectedPath, setSelectedPath] = useState<string | undefined>(undefined);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -195,6 +197,41 @@ export function DocsView({ projectId }: Props) {
     };
     return () => ws.close();
   }, [projectId, queryClient]);
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    setUploadStatus('uploading');
+    const formData = new FormData();
+    files.forEach(f => formData.append('file', f));
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      setUploadStatus('success');
+      void queryClient.invalidateQueries({ queryKey: ['files', projectId] });
+      setTimeout(() => setUploadStatus('idle'), 2500);
+    } catch {
+      setUploadStatus('error');
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    }
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -216,11 +253,41 @@ export function DocsView({ projectId }: Props) {
       {/* Editor area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selectedPath ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#161b22] border border-[#30363d]">
-              <FileText size={22} className="text-[#8b949e]" aria-hidden="true" />
+          <div
+            className={clsx(
+              'flex-1 flex flex-col items-center justify-center gap-4 text-center px-8 transition-colors',
+              isDragOver ? 'bg-[#1f6feb15]' : ''
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div className={clsx(
+              'flex items-center justify-center w-16 h-16 rounded-full border-2 border-dashed transition-colors',
+              isDragOver ? 'border-[#58a6ff] bg-[#1f6feb22]' : 'border-[#30363d] bg-[#161b22]'
+            )}>
+              {uploadStatus === 'uploading' ? (
+                <svg className="animate-spin w-6 h-6 text-[#58a6ff]" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+              ) : uploadStatus === 'success' ? (
+                <svg className="w-6 h-6 text-[#3fb950]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <Upload size={22} className={isDragOver ? 'text-[#58a6ff]' : 'text-[#8b949e]'} />
+              )}
             </div>
-            <p className="text-sm text-[#8b949e]">Select a file from the tree to view or edit it.</p>
+            <div className="space-y-1">
+              <p className="text-sm text-[#8b949e]">Select a file from the tree to view or edit it.</p>
+              <p className="text-xs text-[#484f58]">
+                {uploadStatus === 'uploading' ? 'Uploading...' :
+                 uploadStatus === 'success' ? '✓ File added to references/' :
+                 uploadStatus === 'error' ? '✗ Upload failed' :
+                 'or drag & drop a file here to add it to references/'}
+              </p>
+            </div>
           </div>
         ) : (
           <FileView projectId={projectId} filePath={selectedPath} />

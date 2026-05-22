@@ -61,7 +61,7 @@ function TreeNode({ entry, projectId, selectedPath, onSelectFile, depth }: TreeN
           </span>
           <span className="truncate flex-1">{entry.name}</span>
           {children !== undefined && (
-            <span className="flex-shrink-0 text-[10px] text-[#484f58] ml-1">
+            <span className="flex-shrink-0 text-[10px] text-[#e3b341] ml-1">
               {children.length}
             </span>
           )}

@@ -14,6 +14,7 @@ interface TaskModalProps {
   availableProjects?: Project[];
   epics?: Epic[];
   projectId?: string;
+  agentMode?: 'auto' | 'manual';
   onClose: () => void;
   onSubmit: (data: Omit<Task, 'id' | 'createdAt'>) => void;
 }
@@ -26,6 +27,7 @@ export function TaskModal({
   availableProjects = [],
   epics = [],
   projectId,
+  agentMode = 'auto',
   onClose,
   onSubmit,
 }: TaskModalProps) {
@@ -192,7 +194,7 @@ Always respond in the same language as the user.`
     }
   }
 
-  const showChat = mode === 'edit' && Boolean(projectId) && Boolean(task?.id);
+  const showChat = mode === 'edit' && Boolean(projectId) && Boolean(task?.id) && agentMode !== 'manual';
 
   return (
     <div

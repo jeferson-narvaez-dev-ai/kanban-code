@@ -12,7 +12,7 @@ import { AgentChat } from './AgentChat';
 import { SessionsSidebar } from './SessionsSidebar';
 import { NotificationsView } from './NotificationsView';
 import { ProjectConfigView } from './ProjectConfigView';
-import { setupHarness, getSession, createSession, listEpics, listNotifications } from '../lib/api';
+import { setupHarness, getSession, createSession, listEpics, listNotifications, getProjectConfig } from '../lib/api';
 import type { ChatMessage } from '../lib/api';
 import type { WsEvent } from '../../shared/types';
 
@@ -70,6 +70,13 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
     queryFn: () => listEpics(projectId),
   });
 
+  // Project config — used to read agentMode
+  const { data: projectConfig } = useQuery({
+    queryKey: ['project-config', projectId],
+    queryFn: () => getProjectConfig(projectId),
+  });
+  const agentMode = projectConfig?.agentMode ?? 'auto';
+
   // Unread notifications count for badge
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', projectId],
@@ -91,7 +98,8 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
         const data = JSON.parse(event.data as string) as WsEvent;
         if (
           data.type === 'session:created' &&
-          data.projectId === projectId
+          data.projectId === projectId &&
+          agentMode !== 'manual'
         ) {
           void queryClient.invalidateQueries({ queryKey: ['sessions', projectId] });
           void handleSelectSession(data.sessionId);
@@ -239,12 +247,14 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
             active={activeTab === 'docs'}
             onClick={() => setActiveTab('docs')}
           />
-          <NavItem
-            icon={<Bot size={15} />}
-            label="Agent"
-            active={activeTab === 'agent'}
-            onClick={() => setActiveTab('agent')}
-          />
+          {agentMode !== 'manual' && (
+            <NavItem
+              icon={<Bot size={15} />}
+              label="Agent"
+              active={activeTab === 'agent'}
+              onClick={() => setActiveTab('agent')}
+            />
+          )}
           <NavItem
             icon={<Bell size={15} />}
             label="Notifications"
@@ -260,8 +270,8 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
           />
         </nav>
 
-        {/* Sessions list — only when agent tab is active */}
-        {activeTab === 'agent' && (
+        {/* Sessions list — only when agent tab is active and not in manual mode */}
+        {activeTab === 'agent' && agentMode !== 'manual' && (
           <div className="flex-1 overflow-y-auto border-t border-[#30363d] px-2 py-2">
             <SessionsSidebar
               projectId={projectId}
@@ -282,18 +292,31 @@ export function ProjectWorkspace({ projectId, projectName, projects, onNavigateH
             projectName={projectName}
             projects={projects}
             epics={epics}
+            agentMode={agentMode}
             onNavigateHome={onNavigateHome}
           />
         )}
         {activeTab === 'docs' && (
           <DocsView projectId={projectId} />
         )}
-        {activeTab === 'agent' && (
+        {activeTab === 'agent' && agentMode !== 'manual' && (
           <AgentChat
             projectId={projectId}
             sessionId={activeSessionId}
             initialMessages={sessionMessages}
           />
+        )}
+        {activeTab === 'agent' && agentMode === 'manual' && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <Bot size={32} className="text-[#30363d] mx-auto" />
+              <p className="text-sm font-medium text-[#8b949e]">Agent disabled</p>
+              <p className="text-xs text-[#484f58]">
+                This project is in <span className="text-[#e6edf3] font-mono">manual</span> mode.
+                Enable <span className="text-[#e6edf3] font-mono">auto</span> mode in Config to use the agent.
+              </p>
+            </div>
+          </div>
         )}
         {activeTab === 'notifications' && (
           <NotificationsView projectId={projectId} />

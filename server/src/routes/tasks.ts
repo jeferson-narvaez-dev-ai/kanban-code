@@ -234,9 +234,27 @@ router.post('/:id/move', async (req: Request, res: Response) => {
     res.json(task);
 
     if (toColumn === 'in-progress' && source !== 'agent') {
-      triggerAgentForTask(projectId, task, kanbanWss).catch((err) => {
-        console.error('[taskAgent] Failed to trigger agent for task', task.id, err);
-      });
+      // Read agentMode from project-config.md (reuse the already-parsed config if available,
+      // otherwise do a fresh read — only reaches here if toColumn !== 'waiting-approval')
+      let agentMode: string = 'auto';
+      const configFilePath = path.join(config.workspace, projectId, 'project-config.md');
+      if (fsSync.existsSync(configFilePath)) {
+        try {
+          const raw = await fs.readFile(configFilePath, 'utf-8');
+          const parsed = matter(raw);
+          agentMode = (parsed.data.agentMode as string | undefined) ?? 'auto';
+        } catch {
+          // If we can't read the config, default to auto
+        }
+      }
+
+      if (agentMode === 'auto') {
+        triggerAgentForTask(projectId, task, kanbanWss).catch((err) => {
+          console.error('[taskAgent] Failed to trigger agent for task', task.id, err);
+        });
+      } else {
+        console.log(`[taskAgent] Skipped — project ${projectId} is in manual mode`);
+      }
     }
 
     if (toColumn === 'done') {

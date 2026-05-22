@@ -169,6 +169,7 @@ export const deleteNotification = (projectId: string, filename: string) =>
 export interface ProjectConfig {
   setupCommands: string[];
   testCommands: string[];
+  agentMode?: 'auto' | 'manual';
   setupInstructions: string;
   raw: string;
 }

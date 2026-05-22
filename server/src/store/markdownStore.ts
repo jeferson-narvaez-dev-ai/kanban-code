@@ -411,6 +411,7 @@ setupCommands:
 testCommands:
   - npm test
   - npm run lint
+agentMode: auto
 setupInstructions: |
   Describe any manual setup steps here.
 ---

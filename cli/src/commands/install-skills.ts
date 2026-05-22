@@ -117,6 +117,11 @@ Mueve la tarea especificada a otra columna del tablero Kanban.
 **Arguments**: \`/kanban-move TASK-ID target-column\`
 Valid columns: \`backlog\`, \`in-progress\`, \`waiting-approval\`, \`review\`, \`done\`
 
+> **Note on agent mode**: The project may be configured with \`agentMode: manual\` in \`project-config.md\`.
+> In manual mode the server does NOT auto-trigger the Claude agent when a task moves to \`in-progress\`.
+> If you were invoked directly by the user (not by the automatic trigger), this is a manual-mode session.
+> The same column-flow rules apply regardless of mode: \`in-progress → waiting-approval → done\`.
+
 ## Step 1: Resolve workspace
 Read \`.env.kanban\` → \`tasks_dir = {KANBAN_WORKSPACE}/{KANBAN_PROJECT}/tasks/\`
 
@@ -479,10 +484,15 @@ setupCommands:
   - {detected setup command}
 testCommands:
   - {detected test command}
+agentMode: auto
 setupInstructions: |
   Describe any manual setup steps here.
 ---
 \`\`\`
+
+The \`agentMode\` field controls whether the server auto-triggers the Claude agent when a task moves to \`in-progress\`:
+- \`auto\` (default) — agent is triggered automatically on every \`in-progress\` move
+- \`manual\` — agent is NOT triggered automatically; the user must invoke the agent directly
 
 ### Step 3: Write skill registry
 Create \`.claude/skills/_shared/skill-registry.md\`:
@@ -1333,6 +1343,15 @@ color: '#a371f7'
 createdAt: 2024-01-01T00:00:00.000Z
 ---
 \`\`\`
+
+## project-config.md Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| \`setupCommands\` | string[] | Run before starting work on the project |
+| \`testCommands\` | string[] | MUST pass before moving a task to \`waiting-approval\` |
+| \`agentMode\` | \`auto\` \| \`manual\` | Controls whether the server auto-triggers the Claude agent on task moves to \`in-progress\` |
+| \`setupInstructions\` | string | Manual steps for agents and developers |
 
 ## Kanban Board Task Format
 

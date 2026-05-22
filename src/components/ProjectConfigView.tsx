@@ -13,6 +13,7 @@ function ConfigEditor({ projectId, config }: { projectId: string; config: Projec
   const queryClient = useQueryClient();
   const [setupCmds, setSetupCmds] = useState(config.setupCommands.join('\n'));
   const [testCmds, setTestCmds] = useState(config.testCommands.join('\n'));
+  const [agentMode, setAgentMode] = useState<'auto' | 'manual'>(config.agentMode ?? 'auto');
   const [instructions, setInstructions] = useState(config.setupInstructions);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
@@ -20,6 +21,7 @@ function ConfigEditor({ projectId, config }: { projectId: string; config: Projec
   useEffect(() => {
     setSetupCmds(config.setupCommands.join('\n'));
     setTestCmds(config.testCommands.join('\n'));
+    setAgentMode(config.agentMode ?? 'auto');
     setInstructions(config.setupInstructions);
   }, [config]);
 
@@ -57,6 +59,7 @@ setupCommands:
 ${setupYaml || '  []'}
 testCommands:
 ${testYaml || '  []'}
+agentMode: ${agentMode}
 setupInstructions: |
 ${instrValue}
 ---
@@ -107,6 +110,54 @@ These MUST pass before moving any task to \`waiting-approval\`.
 
       {/* Form */}
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+        {/* Agent Mode */}
+        <section>
+          <label className="block text-sm font-semibold text-[#e6edf3] mb-1">
+            Agent Mode
+          </label>
+          <p className="text-xs text-[#8b949e] mb-3">
+            Controls whether the Claude agent is triggered automatically when a task moves to{' '}
+            <code className="text-[#f0883e] bg-[#21262d] px-1 py-0.5 rounded text-[11px]">
+              in-progress
+            </code>
+            .
+          </p>
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="radio"
+                name="agentMode"
+                value="auto"
+                checked={agentMode === 'auto'}
+                onChange={() => setAgentMode('auto')}
+                className="mt-0.5 accent-[#1f6feb] cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-medium text-[#e6edf3]">Auto</span>
+                <p className="text-xs text-[#8b949e] mt-0.5">
+                  Automatically run the Claude agent when a task moves to in-progress.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="radio"
+                name="agentMode"
+                value="manual"
+                checked={agentMode === 'manual'}
+                onChange={() => setAgentMode('manual')}
+                className="mt-0.5 accent-[#1f6feb] cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-medium text-[#e6edf3]">Manual</span>
+                <p className="text-xs text-[#8b949e] mt-0.5">
+                  Agent is disabled — move tasks freely without triggering Claude.
+                </p>
+              </div>
+            </label>
+          </div>
+        </section>
+
         {/* Setup Commands */}
         <section>
           <label className="block text-sm font-semibold text-[#e6edf3] mb-1">

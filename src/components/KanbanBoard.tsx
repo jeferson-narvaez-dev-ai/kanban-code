@@ -39,6 +39,7 @@ interface KanbanBoardProps {
   projectName?: string;
   projects: Project[];
   epics?: Epic[];
+  agentMode?: 'auto' | 'manual';
   onNavigateHome: () => void;
 }
 
@@ -51,6 +52,7 @@ export function KanbanBoard({
   projectName,
   projects,
   epics = [],
+  agentMode = 'auto',
   onNavigateHome,
 }: KanbanBoardProps) {
   const boardId = mode === 'epic' ? (epicId ?? '') : (projectId ?? '');
@@ -249,6 +251,7 @@ export function KanbanBoard({
                   boardMode={mode}
                   availableProjects={projects}
                   projectId={projectId}
+                  agentMode={agentMode}
                   onAddTask={addTask}
                   onEditTask={editTask}
                   onDeleteTask={deleteTask}

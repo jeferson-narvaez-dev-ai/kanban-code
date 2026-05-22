@@ -18,6 +18,7 @@ setupCommands:
 testCommands:
   - npm test
   - npm run lint
+agentMode: auto
 setupInstructions: |
   Describe any manual setup steps here.
 ---
@@ -48,6 +49,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.json({
       setupCommands: (parsed.data.setupCommands as string[] | undefined) ?? [],
       testCommands: (parsed.data.testCommands as string[] | undefined) ?? [],
+      agentMode: (parsed.data.agentMode as string | undefined) ?? 'auto',
       setupInstructions: (parsed.data.setupInstructions as string | undefined) ?? '',
       raw,
     });
@@ -76,6 +78,7 @@ router.put('/', async (req: Request, res: Response) => {
     res.json({
       setupCommands: (parsed.data.setupCommands as string[] | undefined) ?? [],
       testCommands: (parsed.data.testCommands as string[] | undefined) ?? [],
+      agentMode: (parsed.data.agentMode as string | undefined) ?? 'auto',
       setupInstructions: (parsed.data.setupInstructions as string | undefined) ?? '',
       raw: content,
     });

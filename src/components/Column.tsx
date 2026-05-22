@@ -19,6 +19,7 @@ interface ColumnProps {
   boardMode?: 'epic' | 'project';
   availableProjects?: Project[];
   projectId?: string;
+  agentMode?: 'auto' | 'manual';
   onAddTask: (status: Status, data: Omit<Task, 'id' | 'createdAt'>) => void;
   onEditTask: (id: string, updates: Partial<Task>) => void;
   onDeleteTask: (id: string) => void;
@@ -106,6 +107,7 @@ export function Column({
   boardMode = 'project',
   availableProjects = [],
   projectId,
+  agentMode = 'auto',
   onAddTask,
   onEditTask,
   onDeleteTask,
@@ -206,6 +208,7 @@ export function Column({
           availableProjects={availableProjects}
           epics={epics}
           projectId={projectId}
+          agentMode={agentMode}
           onClose={() => setShowCreate(false)}
           onSubmit={(data) => onAddTask(column.id, data)}
         />
@@ -230,6 +233,7 @@ export function Column({
           availableProjects={availableProjects}
           epics={epics}
           projectId={projectId}
+          agentMode={agentMode}
           onClose={() => setEditingTask(null)}
           onSubmit={(data) => {
             onEditTask(editingTask.id, data);

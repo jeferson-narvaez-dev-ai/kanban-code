@@ -271,9 +271,9 @@ Always respond in the same language as the user.`
                   className="font-mono"
                   style={{
                     fontSize: '10px',
-                    color: '#71717a',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#e3b341',
+                    background: 'rgba(227,179,65,0.08)',
+                    border: '1px solid rgba(227,179,65,0.2)',
                     borderRadius: '4px',
                     padding: '2px 6px',
                   }}

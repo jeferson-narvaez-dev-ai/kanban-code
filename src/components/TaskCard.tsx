@@ -110,7 +110,7 @@ export function TaskCard({ task, onOpen, onEdit, onDelete, projects = [], epics 
         <div className="flex-1 min-w-0">
           <p
             className="font-mono leading-none mb-0.5"
-            style={{ fontSize: '9px', color: '#52525b' }}
+            style={{ fontSize: '9px', color: '#e3b341' }}
           >
             {task.id}
           </p>
